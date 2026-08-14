@@ -8,16 +8,22 @@ datasource db {
 }
 
 model User {
-  id            Int         @id @default(autoincrement())
-  email         String      @unique @db.VarChar(200)
-  password_hash String      @db.VarChar(255)
-  name          String?     @db.VarChar(200)
-  role          String      @default("user") @db.VarChar(20)
-  status        String      @default("pending") @db.VarChar(20)
-  theme         String      @default("dark") @db.VarChar(10)
-  created_at    DateTime    @default(now())
-  updated_at    DateTime    @updatedAt
-  audit_logs    AuditLog[]
+  id               Int            @id @default(autoincrement())
+  email            String         @unique @db.VarChar(200)
+  password_hash    String         @db.VarChar(255)
+  name             String?        @db.VarChar(200)
+  role             String         @default("user") @db.VarChar(20)
+  status           String         @default("pending") @db.VarChar(20)
+  theme            String         @default("dark") @db.VarChar(10)
+  avatar           Int?           @db.SmallInt
+  created_at       DateTime       @default(now())
+  updated_at       DateTime       @updatedAt
+  audit_logs       AuditLog[]
+  leading_projects Project[]      @relation("ProjectLead")
+  assigned_issues  Issue[]        @relation("IssueAssignee")
+  reported_issues  Issue[]        @relation("IssueReporter")
+  comments         IssueComment[]
+  api_keys         ApiKey[]
 
   @@map("users")
 }
@@ -36,3 +42,121 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model ApiKey {
+  id         Int       @id @default(autoincrement())
+  key_hash   String    @db.VarChar(64)
+  prefix     String    @unique @db.VarChar(12)
+  name       String    @db.VarChar(200)
+  contact    String    @db.VarChar(200)
+  expires_at DateTime?
+  created_by Int?
+  creator    User?     @relation(fields: [created_by], references: [id], onDelete: SetNull)
+  created_at DateTime  @default(now())
+  last_used  DateTime?
+  active     Boolean   @default(true)
+
+  @@map("api_keys")
+}
+
+model Project {
+  id          Int       @id @default(autoincrement())
+  key         String    @unique @db.VarChar(10)
+  name        String    @db.VarChar(100)
+  description String?   @db.Text
+  color       String    @default("#3b82f6") @db.VarChar(20)
+  icon        String    @default("folder") @db.VarChar(50)
+  lead_id     Int?
+  lead        User?     @relation("ProjectLead", fields: [lead_id], references: [id], onDelete: SetNull)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  issues      Issue[]
+  labels      Label[]
+
+  @@map("projects")
+}
+
+model Issue {
+  id           Int            @id @default(autoincrement())
+  project_id   Int
+  project      Project        @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  issue_number Int
+  title        String         @db.VarChar(255)
+  description  String?        @db.Text
+  status       String         @default("todo") @db.VarChar(30)
+  priority     String         @default("medium") @db.VarChar(20)
+  type         String         @default("task") @db.VarChar(20)
+  position     Float          @default(0)
+  assignee_id  Int?
+  assignee     User?          @relation("IssueAssignee", fields: [assignee_id], references: [id], onDelete: SetNull)
+  reporter_id  Int?
+  reporter     User?          @relation("IssueReporter", fields: [reporter_id], references: [id], onDelete: SetNull)
+  due_date     DateTime?
+  estimate     Int?
+  created_at   DateTime       @default(now())
+  updated_at   DateTime       @updatedAt
+  comments     IssueComment[]
+  labels       IssueLabel[]
+
+  @@unique([project_id, issue_number], name: "project_issue_number")
+  @@map("issues")
+}
+
+model IssueComment {
+  id         Int      @id @default(autoincrement())
+  issue_id   Int
+  issue      Issue    @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+  user_id    Int
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  content    String   @db.Text
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("issue_comments")
+}
+
+model Label {
+  id         Int          @id @default(autoincrement())
+  name       String       @db.VarChar(50)
+  color      String       @default("#64748b") @db.VarChar(20)
+  project_id Int?
+  project    Project?     @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  issues     IssueLabel[]
+
+  @@map("labels")
+}
+
+model IssueLabel {
+  issue_id Int
+  issue    Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+  label_id Int
+  label    Label @relation(fields: [label_id], references: [id], onDelete: Cascade)
+
+  @@id([issue_id, label_id])
+  @@map("issue_labels")
+}
+
+model FeatureFlag {
+  key         String  @id @db.VarChar(50)
+  enabled     Boolean @default(true)
+  label       String  @db.VarChar(100)
+  description String  @db.VarChar(255)
+
+  @@map("feature_flags")
+}
+
+model Changelog {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @db.Date
+  description String   @db.Text
+  created_at  DateTime @default(now())
+
+  @@map("changelog")
+}
+
+model RolePermission {
+  role    String @db.VarChar(20)
+  nav_key String @db.VarChar(50)
+
+  @@id([role, nav_key])
+  @@map("role_permissions")
+}

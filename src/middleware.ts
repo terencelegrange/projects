@@ -6,10 +6,18 @@ const PUBLIC = ["/login", "/signup", "/api/auth/login", "/api/auth/signup"];
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // 1. Allow public routes
   if (PUBLIC.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
+  // 2. Allow API requests with Authorization: Bearer header to proceed to route handlers (for API key / bearer validation)
+  const authHeader = req.headers.get("authorization");
+  if (pathname.startsWith("/api/") && authHeader?.startsWith("Bearer ")) {
+    return NextResponse.next();
+  }
+
+  // 3. Check session cookie
   const token = req.cookies.get("bp_token")?.value;
   if (!token || !(await verifyToken(token))) {
     if (pathname.startsWith("/api/")) {

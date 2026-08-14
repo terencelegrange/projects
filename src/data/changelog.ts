@@ -9,9 +9,11 @@
  * Format: { date: "YYYY-MM-DD", description: "Short description of the change" }
  */
 export const CHANGELOG: { date: string; description: string }[] = [
+  { date: "2026-08-14", description: "Added vertical priority drag-and-drop reordering in Kanban board (highest cards have biggest priority) with visual drop insertion indicators and 1-click priority dropdown badges" },
+  { date: "2026-08-14", description: "Updated full OpenAPI 3.0 Swagger specifications with request body schemas, parameters, response codes, copyable cURL snippets, and validated 3rd party API key project/issue workflows" },
+  { date: "2026-08-14", description: "Launched Project Management platform with Projects hub, interactive Kanban boards with drag-and-drop, filterable list views, issue detail drawer with comments, and workspace analytics" },
   { date: "2026-08-04", description: "Removed site monitoring / health-check feature and environment selector to restore this as a generic app template" },
   { date: "2026-06-27", description: "Add dedicated profile page with identity and password change cards; simplify top-right dropdown to navigation links" },
-
   { date: "2026-06-26", description: "Replaced profile modal with inline top-bar dropdown; added avatar display, randomizer, and inline profile editing" },
   { date: "2026-06-26", description: "Moved dark mode toggle from sidebar to top bar next to profile dropdown" },
   { date: "2026-05-30", description: "Updated platform server and dev port configuration to 3333" },

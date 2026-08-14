@@ -1,0 +1,18 @@
+services:
+  projects:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: projects:latest
+    container_name: projects
+    restart: unless-stopped
+    ports:
+      - "3042:3333"
+    env_file:
+      # Deliberately not named .env -- Docker Compose auto-loads any file
+      # literally named .env in the project dir for its own $VAR/${VAR}
+      # interpolation (on top of, and inconsistently with, plain env_file
+      # loading), which corrupts values containing a literal $ such as
+      # bcrypt hashes. A non-.env filename gets loaded as plain key=value
+      # pairs with no interpolation at all.
+      - projects.env
