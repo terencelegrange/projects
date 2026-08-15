@@ -6,19 +6,12 @@ import { useEffect, useState, useMemo } from "react";
 import IssueDetailDrawer, {
   IssueData,
   UserSummary,
-  STATUS_CONFIG,
   PRIORITY_CONFIG,
   TYPE_CONFIG,
+  ProjectStatusOption,
 } from "@/components/IssueDetailDrawer";
 import NewIssueModal from "@/components/NewIssueModal";
-
-const KANBAN_COLUMNS = [
-  { id: "backlog", title: "Backlog" },
-  { id: "todo", title: "To Do" },
-  { id: "in_progress", title: "In Progress" },
-  { id: "in_review", title: "In Review" },
-  { id: "done", title: "Done" },
-];
+import { getStatusStyle } from "@/lib/projectStatuses";
 
 const PRIORITY_WEIGHT: Record<string, number> = {
   urgent: 5,
@@ -36,6 +29,7 @@ export default function ProjectWorkspacePage() {
   const [project, setProject] = useState<any>(null);
   const [issues, setIssues] = useState<IssueData[]>([]);
   const [users, setUsers] = useState<UserSummary[]>([]);
+  const [projectStatuses, setProjectStatuses] = useState<ProjectStatusOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   // View Mode: board | list
@@ -43,6 +37,7 @@ export default function ProjectWorkspacePage() {
 
   // Filters
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
@@ -50,7 +45,7 @@ export default function ProjectWorkspacePage() {
   // Drawers / Modals
   const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
-  const [newModalDefaultStatus, setNewModalDefaultStatus] = useState("todo");
+  const [newModalDefaultStatus, setNewModalDefaultStatus] = useState("backlog");
 
   // Drag & Drop State
   const [draggingIssueId, setDraggingIssueId] = useState<number | null>(null);
@@ -61,15 +56,20 @@ export default function ProjectWorkspacePage() {
   async function loadData() {
     if (!projectKey) return;
     try {
-      const [projRes, issuesRes, usersRes] = await Promise.all([
+      const [projRes, issuesRes, usersRes, statusesRes] = await Promise.all([
         fetch(`/api/projects/${projectKey}`),
         fetch(`/api/projects/${projectKey}/issues`),
         fetch("/api/users"),
+        fetch(`/api/projects/${projectKey}/statuses`),
       ]);
 
       if (projRes.ok) {
         const projData = await projRes.json();
         setProject(projData);
+        if (projData.statuses && projData.statuses.length > 0) {
+          setProjectStatuses(projData.statuses);
+          setNewModalDefaultStatus(projData.statuses[0].key);
+        }
       } else if (projRes.status === 404) {
         router.push("/projects");
         return;
@@ -83,6 +83,14 @@ export default function ProjectWorkspacePage() {
       if (usersRes.ok) {
         const usersData = await usersRes.json();
         setUsers(usersData.users || usersData || []);
+      }
+
+      if (statusesRes.ok) {
+        const stData = await statusesRes.json();
+        if (stData.statuses && stData.statuses.length > 0) {
+          setProjectStatuses(stData.statuses);
+          setNewModalDefaultStatus(stData.statuses[0].key);
+        }
       }
     } catch (e) {
       console.error("Failed to load project workspace:", e);
@@ -192,7 +200,6 @@ export default function ProjectWorkspacePage() {
             newPosition = (targetIssue.position || 0) - 1;
           } else {
             const prevIssue = colIssues[targetIdx - 1];
-            // Match target issue priority, position before it
             newPriority = targetIssue.priority;
             newPosition = ((prevIssue.position || 0) + (targetIssue.position || 0)) / 2;
             if (newPosition === targetIssue.position) {
@@ -258,6 +265,10 @@ export default function ProjectWorkspacePage() {
         if (!matchesTitle && !matchesKey && !matchesDesc) return false;
       }
 
+      if (statusFilter !== "all" && iss.status !== statusFilter) {
+        return false;
+      }
+
       if (priorityFilter !== "all" && iss.priority !== priorityFilter) {
         return false;
       }
@@ -276,7 +287,7 @@ export default function ProjectWorkspacePage() {
 
       return true;
     });
-  }, [issues, search, priorityFilter, typeFilter, assigneeFilter]);
+  }, [issues, search, statusFilter, priorityFilter, typeFilter, assigneeFilter]);
 
   // Drag and Drop handlers
   function handleDragStart(e: React.DragEvent, issueId: number) {
@@ -320,8 +331,9 @@ export default function ProjectWorkspacePage() {
     }
   }
 
-  function handleOpenCreate(columnStatus: string = "todo") {
-    setNewModalDefaultStatus(columnStatus);
+  function handleOpenCreate(columnStatus?: string) {
+    const targetStatus = columnStatus || projectStatuses[0]?.key || "backlog";
+    setNewModalDefaultStatus(targetStatus);
     setShowNewModal(true);
   }
 
@@ -341,6 +353,7 @@ export default function ProjectWorkspacePage() {
 
   const hasActiveFilters =
     search.trim() !== "" ||
+    statusFilter !== "all" ||
     priorityFilter !== "all" ||
     typeFilter !== "all" ||
     assigneeFilter !== "all";
@@ -373,6 +386,15 @@ export default function ProjectWorkspacePage() {
                 {project?.name || projectKey}
               </h1>
             </div>
+
+            {/* Quick link to Project Status Settings */}
+            <Link
+              href="/settings/project-statuses"
+              className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-slate-800 transition"
+              title="Configure project workflow stages & columns"
+            >
+              ⚙️ Stages ({projectStatuses.length})
+            </Link>
           </div>
 
           {/* Top Actions: View Toggle + Create Issue */}
@@ -409,7 +431,7 @@ export default function ProjectWorkspacePage() {
 
             {/* Create Issue */}
             <button
-              onClick={() => handleOpenCreate("todo")}
+              onClick={() => handleOpenCreate()}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm shadow-indigo-500/20 transition active:scale-95"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -435,6 +457,20 @@ export default function ProjectWorkspacePage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
+
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 focus:outline-none"
+          >
+            <option value="all">All Stages ({projectStatuses.length})</option>
+            {projectStatuses.map((st) => (
+              <option key={st.key} value={st.key}>
+                {st.name}
+              </option>
+            ))}
+          </select>
 
           {/* Priority */}
           <select
@@ -483,6 +519,7 @@ export default function ProjectWorkspacePage() {
             <button
               onClick={() => {
                 setSearch("");
+                setStatusFilter("all");
                 setPriorityFilter("all");
                 setTypeFilter("all");
                 setAssigneeFilter("all");
@@ -511,26 +548,26 @@ export default function ProjectWorkspacePage() {
           </div>
         ) : viewMode === "board" ? (
           /* ========================================================================= */
-          /* KANBAN BOARD VIEW */
+          /* DYNAMIC KANBAN BOARD VIEW (1 to N Columns) */
           /* ========================================================================= */
           <div className="flex gap-4 min-w-[1100px] h-full items-start pb-6">
-            {KANBAN_COLUMNS.map((col) => {
+            {projectStatuses.map((col) => {
               const colIssues = filteredIssues
-                .filter((i) => i.status === col.id)
+                .filter((i) => i.status === col.key)
                 .sort((a, b) => {
                   const pDiff = (PRIORITY_WEIGHT[b.priority] || 0) - (PRIORITY_WEIGHT[a.priority] || 0);
                   if (pDiff !== 0) return pDiff;
                   return (a.position || 0) - (b.position || 0);
                 });
 
-              const conf = STATUS_CONFIG[col.id] || STATUS_CONFIG.todo;
-              const isOver = dragOverColumn === col.id;
+              const style = getStatusStyle(col.color);
+              const isOver = dragOverColumn === col.key;
 
               return (
                 <div
-                  key={col.id}
-                  onDragOver={(e) => handleColumnDragOver(e, col.id)}
-                  onDrop={(e) => handleColumnDrop(e, col.id)}
+                  key={col.key}
+                  onDragOver={(e) => handleColumnDragOver(e, col.key)}
+                  onDrop={(e) => handleColumnDrop(e, col.key)}
                   className={`w-72 flex-shrink-0 flex flex-col bg-slate-100 dark:bg-slate-900/60 rounded-2xl border transition-colors max-h-full ${
                     isOver
                       ? "border-indigo-500 bg-indigo-50/20 dark:bg-indigo-950/20"
@@ -542,7 +579,7 @@ export default function ProjectWorkspacePage() {
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      setDragOverColumn(col.id);
+                      setDragOverColumn(col.key);
                       if (colIssues.length > 0) {
                         setDragOverIssueId(colIssues[0].id);
                         setDropPlacement("above");
@@ -551,9 +588,9 @@ export default function ProjectWorkspacePage() {
                     className="p-3.5 flex items-center justify-between border-b border-gray-200/60 dark:border-slate-800/80"
                   >
                     <div className="flex items-center gap-2">
-                      <span className={`w-2.5 h-2.5 rounded-full ${conf.dot}`} />
+                      <span className={`w-2.5 h-2.5 rounded-full ${style.dot}`} />
                       <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
-                        {col.title}
+                        {col.name}
                       </span>
                       <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
                         {colIssues.length}
@@ -561,9 +598,9 @@ export default function ProjectWorkspacePage() {
                     </div>
 
                     <button
-                      onClick={() => handleOpenCreate(col.id)}
+                      onClick={() => handleOpenCreate(col.key)}
                       className="p-1 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-800 rounded transition"
-                      title={`Add issue to ${col.title}`}
+                      title={`Add issue to ${col.name}`}
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -575,7 +612,7 @@ export default function ProjectWorkspacePage() {
                   <div className="p-2.5 flex-1 overflow-y-auto space-y-2.5 min-h-[150px]">
                     {colIssues.length === 0 ? (
                       <div
-                        onDragOver={(e) => handleColumnDragOver(e, col.id)}
+                        onDragOver={(e) => handleColumnDragOver(e, col.key)}
                         className="h-28 border-2 border-dashed border-gray-200 dark:border-slate-800 rounded-xl flex flex-col items-center justify-center text-xs text-gray-400 gap-1"
                       >
                         <span>Drop cards here</span>
@@ -667,9 +704,9 @@ export default function ProjectWorkspacePage() {
                                   }}
                                   className="bg-transparent text-[11px] font-medium text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer focus:outline-none"
                                 >
-                                  {KANBAN_COLUMNS.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                      → {c.title}
+                                  {projectStatuses.map((c) => (
+                                    <option key={c.key} value={c.key}>
+                                      → {c.name}
                                     </option>
                                   ))}
                                 </select>
@@ -716,7 +753,8 @@ export default function ProjectWorkspacePage() {
                       .map((iss) => {
                         const prioConf = PRIORITY_CONFIG[iss.priority] || PRIORITY_CONFIG.medium;
                         const typeConf = TYPE_CONFIG[iss.type] || TYPE_CONFIG.task;
-                        const statusConf = STATUS_CONFIG[iss.status] || STATUS_CONFIG.todo;
+                        const currStatus = projectStatuses.find((s) => s.key === iss.status);
+                        const statusStyle = getStatusStyle(currStatus?.color);
 
                         return (
                           <tr
@@ -746,11 +784,11 @@ export default function ProjectWorkspacePage() {
                               <select
                                 value={iss.status}
                                 onChange={(e) => handleStatusChange(iss.id, e.target.value)}
-                                className={`text-[11px] font-bold px-2 py-1 rounded-lg border border-transparent appearance-none cursor-pointer focus:outline-none ${statusConf.bg} ${statusConf.text}`}
+                                className={`text-[11px] font-bold px-2 py-1 rounded-lg border border-transparent appearance-none cursor-pointer focus:outline-none ${statusStyle.bg} ${statusStyle.text}`}
                               >
-                                {KANBAN_COLUMNS.map((c) => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.title}
+                                {projectStatuses.map((c) => (
+                                  <option key={c.key} value={c.key}>
+                                    {c.name}
                                   </option>
                                 ))}
                               </select>
@@ -803,6 +841,7 @@ export default function ProjectWorkspacePage() {
         onUpdated={handleIssueUpdated}
         onDeleted={handleIssueDeleted}
         users={users}
+        projectStatuses={projectStatuses}
       />
 
       {/* New Issue Modal */}
@@ -814,6 +853,7 @@ export default function ProjectWorkspacePage() {
           projectKey={project.key}
           defaultStatus={newModalDefaultStatus}
           users={users}
+          projectStatuses={projectStatuses}
         />
       )}
     </div>

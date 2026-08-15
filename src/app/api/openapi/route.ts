@@ -244,6 +244,148 @@ const spec = {
       },
     },
 
+    // ── Project Statuses (Workflows) ────────────────────────────────────
+    "/projects/{key}/statuses": {
+      get: {
+        tags: ["Project Statuses"],
+        summary: "List project workflow statuses",
+        description: "Returns all configured workflow status stages for a project ordered by 1 to N position.",
+        parameters: [
+          { name: "key", in: "path", required: true, schema: { type: "string" }, example: "CORE" },
+        ],
+        responses: {
+          200: {
+            description: "List of project statuses",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    statuses: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id:         { type: "integer", example: 1 },
+                          project_id: { type: "integer", example: 1 },
+                          key:        { type: "string", example: "idea" },
+                          name:       { type: "string", example: "Idea" },
+                          order:      { type: "integer", example: 1 },
+                          color:      { type: "string", example: "#6366f1" },
+                          is_done:    { type: "boolean", example: false },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          404: { description: "Project not found" },
+        },
+      },
+      post: {
+        tags: ["Project Statuses"],
+        summary: "Add a workflow status stage to project",
+        description: "Creates a new status stage for the project (e.g. 'idea', 'triage', 'qa', 'deployed').",
+        parameters: [
+          { name: "key", in: "path", required: true, schema: { type: "string" }, example: "CORE" },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name"],
+                properties: {
+                  name:    { type: "string", example: "Feature Ideation" },
+                  key:     { type: "string", example: "feature_ideation" },
+                  color:   { type: "string", example: "#6366f1" },
+                  order:   { type: "integer", example: 1 },
+                  is_done: { type: "boolean", example: false },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: "Status stage created" },
+          400: { description: "Validation error" },
+        },
+      },
+      put: {
+        tags: ["Project Statuses"],
+        summary: "Reorder project workflow stages",
+        description: "Batch re-orders all status stages for a project to maintain sequential 1..N order.",
+        parameters: [
+          { name: "key", in: "path", required: true, schema: { type: "string" }, example: "CORE" },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  statusIds: { type: "array", items: { type: "integer" }, example: [4, 1, 2, 3, 5] },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Statuses reordered" },
+        },
+      },
+    },
+
+    "/projects/{key}/statuses/{id}": {
+      patch: {
+        tags: ["Project Statuses"],
+        summary: "Update a project status stage",
+        parameters: [
+          { name: "key", in: "path", required: true, schema: { type: "string" }, example: "CORE" },
+          { name: "id", in: "path", required: true, schema: { type: "integer" }, example: 1 },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name:    { type: "string", example: "In QA & Review" },
+                  key:     { type: "string", example: "in_qa" },
+                  color:   { type: "string", example: "#a855f7" },
+                  order:   { type: "integer", example: 3 },
+                  is_done: { type: "boolean", example: false },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Status updated" },
+          404: { description: "Status not found" },
+        },
+      },
+      delete: {
+        tags: ["Project Statuses"],
+        summary: "Delete a project status stage",
+        description: "Deletes the status stage and migrates any existing issues to the chosen target status.",
+        parameters: [
+          { name: "key", in: "path", required: true, schema: { type: "string" }, example: "CORE" },
+          { name: "id", in: "path", required: true, schema: { type: "integer" }, example: 1 },
+          { name: "migrateToKey", in: "query", schema: { type: "string" }, description: "Target status key for existing issues" },
+        ],
+        responses: {
+          200: { description: "Status deleted and issues migrated" },
+          400: { description: "Cannot delete the last remaining status" },
+        },
+      },
+    },
+
     // ── Issues ──────────────────────────────────────────────────────────
     "/projects/{key}/issues": {
       get: {
@@ -293,7 +435,7 @@ const spec = {
                 properties: {
                   title:       { type: "string", example: "Optimize database queries" },
                   description: { type: "string", example: "Add indexes to audit_logs and issues" },
-                  status:      { type: "string", enum: ["backlog", "todo", "in_progress", "in_review", "done", "canceled"], default: "todo" },
+                  status:      { type: "string", enum: ["backlog", "todo", "in_progress", "in_review", "done", "canceled"], default: "backlog" },
                   priority:    { type: "string", enum: ["urgent", "high", "medium", "low", "none"], default: "medium" },
                   type:        { type: "string", enum: ["task", "bug", "feature", "improvement"], default: "task" },
                   assignee_id: { type: "integer", example: 1 },
@@ -531,6 +673,91 @@ const spec = {
         ],
         responses: {
           200: { description: "API key deleted" },
+          403: { description: "Admin role required" },
+        },
+      },
+    },
+
+    // ── Workflow Statuses ───────────────────────────────────────────────
+    "/statuses": {
+      get: {
+        tags: ["Workflow Statuses"],
+        summary: "List workflow statuses with custom label mappings",
+        description: "Returns effective display labels for all standard workflow statuses, falling back to defaults if unconfigured.",
+        responses: {
+          200: {
+            description: "Status definitions and lookup map",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    statuses: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          key:          { type: "string", example: "backlog" },
+                          label:        { type: "string", example: "Feature Ideation" },
+                          defaultLabel: { type: "string", example: "Backlog" },
+                          dot:          { type: "string", example: "bg-gray-400" },
+                          bg:           { type: "string", example: "bg-gray-100" },
+                          text:         { type: "string", example: "text-gray-700" },
+                          description:  { type: "string", example: "Ideas and feature requests" },
+                        },
+                      },
+                    },
+                    map: {
+                      type: "object",
+                      example: {
+                        backlog: "Feature Ideation",
+                        todo: "To Do",
+                        in_progress: "In Progress",
+                        in_review: "In Review",
+                        done: "Done",
+                        canceled: "Canceled",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      put: {
+        tags: ["Workflow Statuses"],
+        summary: "Update custom status display labels",
+        description: "Updates custom display names for workflow statuses (e.g. rename 'backlog' to 'Feature Ideation'). Admin only.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  mappings: {
+                    type: "object",
+                    example: {
+                      backlog: "Feature Ideation",
+                      in_progress: "Active Sprint",
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Status mappings updated" },
+          403: { description: "Admin role required" },
+        },
+      },
+      delete: {
+        tags: ["Workflow Statuses"],
+        summary: "Reset status mappings to system defaults",
+        responses: {
+          200: { description: "Statuses reset to defaults" },
           403: { description: "Admin role required" },
         },
       },

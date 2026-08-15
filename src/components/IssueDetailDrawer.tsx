@@ -37,12 +37,23 @@ export interface IssueData {
   updatedAt: string;
 }
 
+export interface ProjectStatusOption {
+  id?: number;
+  key: string;
+  name: string;
+  color?: string | null;
+  order?: number;
+  is_done?: boolean;
+}
+
 interface IssueDetailDrawerProps {
   issueId: number | null;
   onClose: () => void;
   onUpdated: (updatedIssue: IssueData) => void;
   onDeleted: (deletedIssueId: number) => void;
   users: UserSummary[];
+  statusMap?: Record<string, string>;
+  projectStatuses?: ProjectStatusOption[];
 }
 
 export const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
@@ -75,6 +86,8 @@ export default function IssueDetailDrawer({
   onUpdated,
   onDeleted,
   users,
+  statusMap = {},
+  projectStatuses = [],
 }: IssueDetailDrawerProps) {
   const [issue, setIssue] = useState<IssueData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -285,11 +298,19 @@ export default function IssueDetailDrawer({
                   onChange={(e) => updateField({ status: e.target.value })}
                   className="w-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  {Object.entries(STATUS_CONFIG).map(([val, conf]) => (
-                    <option key={val} value={val}>
-                      {conf.label}
-                    </option>
-                  ))}
+                  {projectStatuses.length > 0 ? (
+                    projectStatuses.map((st) => (
+                      <option key={st.key} value={st.key}>
+                        {st.name}
+                      </option>
+                    ))
+                  ) : (
+                    Object.entries(STATUS_CONFIG).map(([val, conf]) => (
+                      <option key={val} value={val}>
+                        {statusMap[val] || conf.label}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 

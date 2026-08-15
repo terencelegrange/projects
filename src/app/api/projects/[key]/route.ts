@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { initDb } from "@/lib/initDb";
 import { auditLog, getIp } from "@/lib/audit";
+import { ensureProjectStatuses } from "@/lib/projectStatuses";
 
 export async function GET(
   req: NextRequest,
@@ -21,6 +22,7 @@ export async function GET(
       include: {
         lead: { select: { id: true, name: true, email: true, avatar: true } },
         labels: true,
+        statuses: { orderBy: { order: "asc" } },
         issues: {
           select: {
             id: true,
@@ -35,12 +37,21 @@ export async function GET(
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
+    const statuses = project.statuses.length > 0 ? project.statuses : await ensureProjectStatuses(project.id);
+    const doneKeys = new Set(statuses.filter((s) => s.is_done).map((s) => s.key));
+    if (doneKeys.size === 0) doneKeys.add("done");
+
     const totalIssues = project.issues.length;
-    const doneIssues = project.issues.filter((i) => i.status === "done").length;
-    const inProgressIssues = project.issues.filter((i) => i.status === "in_progress").length;
-    const todoIssues = project.issues.filter((i) => i.status === "todo").length;
-    const backlogIssues = project.issues.filter((i) => i.status === "backlog").length;
+    const doneIssues = project.issues.filter((i) => doneKeys.has(i.status)).length;
     const completionRate = totalIssues > 0 ? Math.round((doneIssues / totalIssues) * 100) : 0;
+
+    const countByStatus: Record<string, number> = {};
+    for (const st of statuses) {
+      countByStatus[st.key] = 0;
+    }
+    for (const iss of project.issues) {
+      countByStatus[iss.status] = (countByStatus[iss.status] || 0) + 1;
+    }
 
     return NextResponse.json({
       id: project.id,
@@ -51,15 +62,14 @@ export async function GET(
       icon: project.icon,
       lead: project.lead,
       labels: project.labels,
+      statuses,
       created_at: project.created_at,
       updated_at: project.updated_at,
       stats: {
         total: totalIssues,
         done: doneIssues,
-        in_progress: inProgressIssues,
-        todo: todoIssues,
-        backlog: backlogIssues,
         completionRate,
+        byStatus: countByStatus,
       },
     });
   } catch (error) {
@@ -98,6 +108,7 @@ export async function PATCH(
       },
       include: {
         lead: { select: { id: true, name: true, email: true, avatar: true } },
+        statuses: { orderBy: { order: "asc" } },
       },
     });
 

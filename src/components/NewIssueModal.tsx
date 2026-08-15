@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { STATUS_CONFIG, PRIORITY_CONFIG, TYPE_CONFIG, UserSummary, IssueData } from "./IssueDetailDrawer";
+import { useState, useEffect } from "react";
+import { STATUS_CONFIG, PRIORITY_CONFIG, TYPE_CONFIG, UserSummary, IssueData, ProjectStatusOption } from "./IssueDetailDrawer";
 
 interface NewIssueModalProps {
   isOpen: boolean;
@@ -9,6 +9,8 @@ interface NewIssueModalProps {
   projectKey: string;
   defaultStatus?: string;
   users: UserSummary[];
+  statusMap?: Record<string, string>;
+  projectStatuses?: ProjectStatusOption[];
   onCreated: (createdIssue: IssueData) => void;
 }
 
@@ -16,8 +18,10 @@ export default function NewIssueModal({
   isOpen,
   onClose,
   projectKey,
-  defaultStatus = "todo",
+  defaultStatus = "backlog",
   users,
+  statusMap = {},
+  projectStatuses = [],
   onCreated,
 }: NewIssueModalProps) {
   const [title, setTitle] = useState("");
@@ -28,6 +32,13 @@ export default function NewIssueModal({
   const [assigneeId, setAssigneeId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setStatus(defaultStatus);
+      setError(null);
+    }
+  }, [isOpen, defaultStatus]);
 
   if (!isOpen) return null;
 
@@ -62,7 +73,7 @@ export default function NewIssueModal({
         onCreated(data);
         setTitle("");
         setDescription("");
-        setStatus(defaultStatus);
+        setStatus("backlog");
         setPriority("medium");
         setType("task");
         setAssigneeId("");
@@ -78,122 +89,141 @@ export default function NewIssueModal({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden animate-scaleUp">
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
               {projectKey}
             </span>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Create New Issue</h3>
+            <h3 className="text-base font-bold text-gray-900 dark:text-white">
+              Create New Issue
+            </h3>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition"
           >
-            ✕
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
-        {/* Modal Form */}
+        {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
-            <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 rounded-lg text-xs text-rose-600 dark:text-rose-400 font-medium">
+            <div className="p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-xs text-red-600 dark:text-red-400 rounded-xl">
               {error}
             </div>
           )}
 
+          {/* Title */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
-              Issue Title <span className="text-rose-500">*</span>
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+              Title <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               required
-              placeholder="e.g. Design authentication modal"
+              autoFocus
+              placeholder="e.g. Implement real-time notifications"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              autoFocus
+              className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
+          {/* Description */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
               Description
             </label>
             <textarea
               rows={3}
-              placeholder="Add context, acceptance criteria or steps to reproduce..."
+              placeholder="Add details, acceptance criteria, or context..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-3 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* Metadata Grid */}
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            {/* Status */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
-                Type
-              </label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                {Object.entries(TYPE_CONFIG).map(([key, conf]) => (
-                  <option key={key} value={key}>
-                    {conf.icon} {conf.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
-                Priority
-              </label>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                {Object.entries(PRIORITY_CONFIG).map(([key, conf]) => (
-                  <option key={key} value={key}>
-                    {conf.icon} {conf.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
                 Status
               </label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
-                {Object.entries(STATUS_CONFIG).map(([key, conf]) => (
-                  <option key={key} value={key}>
-                    {conf.label}
+                {projectStatuses.length > 0 ? (
+                  projectStatuses.map((st) => (
+                    <option key={st.key} value={st.key}>
+                      {st.name}
+                    </option>
+                  ))
+                ) : (
+                  Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {statusMap[k] || v.label}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            {/* Priority */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                Priority
+              </label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {Object.entries(PRIORITY_CONFIG).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v.icon} {v.label}
                   </option>
                 ))}
               </select>
             </div>
 
+            {/* Type */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                Issue Type
+              </label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+                className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {Object.entries(TYPE_CONFIG).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v.icon} {v.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Assignee */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
                 Assignee
               </label>
               <select
                 value={assigneeId}
                 onChange={(e) => setAssigneeId(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="">Unassigned</option>
                 {users.map((u) => (
-                  <option key={u.id} value={u.id}>
+                  <option key={u.id} value={String(u.id)}>
                     {u.name || u.email}
                   </option>
                 ))}
@@ -201,19 +231,19 @@ export default function NewIssueModal({
             </div>
           </div>
 
-          {/* Modal Footer */}
-          <div className="pt-4 border-t border-gray-200 dark:border-slate-800 flex items-center justify-end gap-3">
+          {/* Footer Actions */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition"
+              className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={loading || !title.trim()}
-              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition flex items-center gap-1.5"
+              disabled={loading}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-sm shadow-indigo-500/20 transition"
             >
               {loading ? "Creating..." : "Create Issue"}
             </button>

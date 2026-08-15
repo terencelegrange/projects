@@ -9,6 +9,10 @@
  * Format: { date: "YYYY-MM-DD", description: "Short description of the change" }
  */
 export const CHANGELOG: { date: string; description: string }[] = [
+  { date: "2026-08-15", description: "Added Dynamic Per-Project Statuses (1-N Ordering) with custom workflow stages, dedicated Settings UI (/settings/project-statuses), REST APIs, full Kanban integration, and regression test suite (7/7 passed)" },
+  { date: "2026-08-15", description: "Updated Projects hub and Project Kanban workspace layout to responsive full width" },
+  { date: "2026-08-14", description: "Added Workflow & Statuses settings page and REST API (/api/statuses) allowing custom display names for workflow statuses with automatic fallback to defaults" },
+  { date: "2026-08-14", description: "Updated default issue status to 'backlog' across New Issue modals, REST APIs, database schemas, and Kanban creation triggers" },
   { date: "2026-08-14", description: "Added vertical priority drag-and-drop reordering in Kanban board (highest cards have biggest priority) with visual drop insertion indicators and 1-click priority dropdown badges" },
   { date: "2026-08-14", description: "Updated full OpenAPI 3.0 Swagger specifications with request body schemas, parameters, response codes, copyable cURL snippets, and validated 3rd party API key project/issue workflows" },
   { date: "2026-08-14", description: "Launched Project Management platform with Projects hub, interactive Kanban boards with drag-and-drop, filterable list views, issue detail drawer with comments, and workspace analytics" },

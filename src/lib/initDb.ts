@@ -148,7 +148,7 @@ export async function initDb() {
         \`issue_number\` INT NOT NULL,
         \`title\`        VARCHAR(255) NOT NULL,
         \`description\`  TEXT NULL,
-        \`status\`       VARCHAR(30) NOT NULL DEFAULT 'todo',
+        \`status\`       VARCHAR(30) NOT NULL DEFAULT 'backlog',
         \`priority\`     VARCHAR(20) NOT NULL DEFAULT 'medium',
         \`type\`         VARCHAR(20) NOT NULL DEFAULT 'task',
         \`assignee_id\`  INT NULL,
@@ -206,6 +206,25 @@ export async function initDb() {
         KEY \`issue_labels_label_id_fk\` (\`label_id\`),
         CONSTRAINT \`issue_labels_issue_id_fk\` FOREIGN KEY (\`issue_id\`) REFERENCES \`issues\` (\`id\`) ON DELETE CASCADE,
         CONSTRAINT \`issue_labels_label_id_fk\` FOREIGN KEY (\`label_id\`) REFERENCES \`labels\` (\`id\`) ON DELETE CASCADE
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
+    // Project Statuses table
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`project_statuses\` (
+        \`id\`         INT NOT NULL AUTO_INCREMENT,
+        \`project_id\` INT NOT NULL,
+        \`key\`        VARCHAR(50) NOT NULL,
+        \`name\`       VARCHAR(100) NOT NULL,
+        \`order\`      INT NOT NULL DEFAULT 1,
+        \`color\`      VARCHAR(50) NULL,
+        \`is_done\`    BOOLEAN NOT NULL DEFAULT FALSE,
+        \`created_at\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updated_at\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        UNIQUE KEY \`project_status_key\` (\`project_id\`, \`key\`),
+        KEY \`project_order_idx\` (\`project_id\`, \`order\`),
+        CONSTRAINT \`project_statuses_project_id_fk\` FOREIGN KEY (\`project_id\`) REFERENCES \`projects\` (\`id\`) ON DELETE CASCADE
       ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
     `;
 

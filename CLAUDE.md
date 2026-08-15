@@ -25,6 +25,7 @@ src/
         roles/page.tsx          # Role-Based Access Control (RBAC) permission matrix
         feature-flags/page.tsx  # Feature flag toggles
         api-access/page.tsx     # API Key generation (bp_...) & revocation
+        project-statuses/page.tsx # Custom per-board workflow stages & 1-N column ordering
         audit/page.tsx          # Paginated audit log browser
         documentation/page.tsx  # Interactive OpenAPI 3.0 documentation & cURL generator
         changelog/page.tsx      # System changelog synced with database
@@ -37,6 +38,8 @@ src/
         [key]/
           route.ts              # GET (by key), PATCH (update), DELETE (cascade)
           issues/route.ts       # GET (filtered project issues), POST (create issue)
+          statuses/route.ts     # GET (list 1-N stages), POST (add stage), PUT (reorder)
+          statuses/[id]/route.ts# PATCH (edit stage), DELETE (delete & migrate)
       issues/
         [id]/
           route.ts              # GET, PATCH (status/priority/position), DELETE (by ID or KEY)
@@ -59,6 +62,7 @@ src/
       rbac/
         route.ts                # GET (permission matrix), PUT (update permissions)
         me/route.ts             # GET (current user allowed nav keys)
+      statuses/route.ts         # GET (effective status labels), PUT (update mappings), DELETE (reset)
       feature-flags/
         route.ts                # GET (all flags)
         [key]/route.ts          # PATCH (toggle flag)
@@ -96,6 +100,7 @@ The database contains 11 core tables managed via Prisma and `src/lib/initDb.ts`:
 |---|---|---|
 | `users` | `id`, `email`, `password_hash`, `name`, `role`, `status`, `theme`, `avatar` | User accounts, roles (`viewer`, `editor`, `admin`), and approval status (`pending`, `approved`, `rejected`). |
 | `projects` | `id`, `key` (UNIQUE), `name`, `description`, `color`, `icon`, `lead_id` | Top-level project workspaces with team leads and custom accents. |
+| `project_statuses` | `id`, `project_id`, `key`, `name`, `order`, `color`, `is_done` | Per-project customizable workflow stages with sequential 1-N ordering. |
 | `issues` | `id`, `project_id`, `issue_number`, `title`, `description`, `status`, `priority`, `type`, `position`, `assignee_id`, `reporter_id`, `estimate`, `due_date` | Work items. Composite unique constraint `[project_id, issue_number]` for sequential keys (`CORE-1`, `CORE-2`). |
 | `issue_comments` | `id`, `issue_id`, `user_id`, `content`, `created_at` | Threaded discussions and automated bot updates on issues. |
 | `labels` | `id`, `name`, `color`, `project_id` | Categorization tags for issues. |
@@ -103,6 +108,7 @@ The database contains 11 core tables managed via Prisma and `src/lib/initDb.ts`:
 | `api_keys` | `id`, `key_hash` (SHA-256), `prefix`, `name`, `contact`, `expires_at`, `created_by`, `active`, `last_used` | Programmatic API keys (`bp_...`) for 3rd-party integration. |
 | `role_permissions` | `role`, `nav_key` (Composite PK) | Role-Based Access Control matrix for sidebar navigation. |
 | `feature_flags` | `key` (PK), `enabled`, `label`, `description` | Runtime toggles (`signup`, `dashboard`, `menu`, `projects`). |
+| `custom_statuses` | `key` (PK), `label`, `color`, `created_at`, `updated_at` | Custom display label mappings for standard workflow statuses. |
 | `audit_logs` | `id`, `user_id`, `action`, `resource`, `resource_id`, `details`, `ip`, `created_at` | Audit trail of all database mutations. |
 | `changelog` | `id`, `date`, `description`, `created_at` | Development history synced from `src/data/changelog.ts`. |
 
@@ -137,9 +143,16 @@ All endpoints accept `Authorization: Bearer <api_key>` or browser session cookie
 - `PATCH /api/projects/{key}` — Update project name, description, color, or lead.
 - `DELETE /api/projects/{key}` — Delete project and cascade-delete all issues and comments.
 
-### 2. Issues & Workflows API
+### 2. Project Statuses & Workflows API
+- `GET /api/projects/{key}/statuses` — List all workflow status stages for a project ordered by 1 to N position.
+- `POST /api/projects/{key}/statuses` — Add a new status stage (`{ name, key, color, order, is_done }`).
+- `PUT /api/projects/{key}/statuses` — Batch re-order statuses via array of IDs (`{ statusIds: [4, 1, 2, 3] }`).
+- `PATCH /api/projects/{key}/statuses/{id}` — Edit status name, color, key, or `is_done` flag.
+- `DELETE /api/projects/{key}/statuses/{id}?migrateToKey=...` — Delete status and migrate any active issues safely.
+
+### 3. Issues & Board Workflows API
 - `GET /api/projects/{key}/issues` — List issues in a project with filtering (`search`, `status`, `priority`, `type`, `assigneeId`). Returns issues sorted by priority hierarchy and vertical position.
-- `POST /api/projects/{key}/issues` — Create an issue with auto-incrementing key (`KEY-N`).
+- `POST /api/projects/{key}/issues` — Create an issue (defaults to project's `order: 1` status if omitted).
 - `GET /api/issues/{id}` — Get issue details by numeric ID (e.g. `2`) or formatted key (e.g. `CORE-2`).
 - `PATCH /api/issues/{id}` — Update title, description, status, priority, position, assignee, estimate, or labels.
 - `DELETE /api/issues/{id}` — Delete issue by ID or key.
@@ -173,14 +186,19 @@ All endpoints accept `Authorization: Bearer <api_key>` or browser session cookie
 - `PUT /api/rbac` — Replace role permissions.
 - `GET /api/rbac/me` — Allowed nav keys for currently authenticated user.
 
-### 8. Feature Flags & Audit API
+### 8. Workflow Statuses & Custom Labels API
+- `GET /api/statuses` — Returns all workflow statuses with custom display labels (or system defaults) and lookup map.
+- `PUT /api/statuses` — Update custom status display names (`{ mappings: { backlog: "Feature Ideation", ... } }`).
+- `DELETE /api/statuses` — Reset all status mappings back to system defaults.
+
+### 9. Feature Flags & Audit API
 - `GET /api/feature-flags` — List all feature flags.
 - `PATCH /api/feature-flags/{key}` — Toggle feature flag (`{ enabled: boolean }`).
 - `GET /api/audit` — Paginated audit log (`?page=1&limit=25&action=...`).
 - `GET /api/changelog` — Development changelog history.
 - `GET /api/openapi` — OpenAPI 3.0 JSON specification.
 
-### 9. Auth & Profile API
+### 10. Auth & Profile API
 - `POST /api/auth/login` — Authenticate with email and password.
 - `POST /api/auth/logout` — Invalidate session cookie.
 - `POST /api/auth/signup` — Register new account (starts in `pending` state).

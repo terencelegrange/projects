@@ -59,20 +59,38 @@ model ApiKey {
 }
 
 model Project {
-  id          Int       @id @default(autoincrement())
-  key         String    @unique @db.VarChar(10)
-  name        String    @db.VarChar(100)
-  description String?   @db.Text
-  color       String    @default("#3b82f6") @db.VarChar(20)
-  icon        String    @default("folder") @db.VarChar(50)
+  id          Int             @id @default(autoincrement())
+  key         String          @unique @db.VarChar(10)
+  name        String          @db.VarChar(100)
+  description String?         @db.Text
+  color       String          @default("#3b82f6") @db.VarChar(20)
+  icon        String          @default("folder") @db.VarChar(50)
   lead_id     Int?
-  lead        User?     @relation("ProjectLead", fields: [lead_id], references: [id], onDelete: SetNull)
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @updatedAt
+  lead        User?           @relation("ProjectLead", fields: [lead_id], references: [id], onDelete: SetNull)
+  created_at  DateTime        @default(now())
+  updated_at  DateTime        @updatedAt
   issues      Issue[]
   labels      Label[]
+  statuses    ProjectStatus[]
 
   @@map("projects")
+}
+
+model ProjectStatus {
+  id          Int      @id @default(autoincrement())
+  project_id  Int
+  project     Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  key         String   @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  order       Int      @default(1)
+  color       String?  @db.VarChar(50)
+  is_done     Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@unique([project_id, key], name: "project_status_key")
+  @@index([project_id, order], name: "project_order_idx")
+  @@map("project_statuses")
 }
 
 model Issue {
@@ -82,7 +100,7 @@ model Issue {
   issue_number Int
   title        String         @db.VarChar(255)
   description  String?        @db.Text
-  status       String         @default("todo") @db.VarChar(30)
+  status       String         @default("backlog") @db.VarChar(50)
   priority     String         @default("medium") @db.VarChar(20)
   type         String         @default("task") @db.VarChar(20)
   position     Float          @default(0)
@@ -159,4 +177,14 @@ model RolePermission {
 
   @@id([role, nav_key])
   @@map("role_permissions")
+}
+
+model CustomStatus {
+  key        String   @id @db.VarChar(30)
+  label      String   @db.VarChar(100)
+  color      String?  @db.VarChar(50)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("custom_statuses")
 }

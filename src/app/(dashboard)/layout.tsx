@@ -219,9 +219,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           )}
         </div>
 
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          {children}
-        </div>
+        {pathname?.startsWith("/projects") ? (
+          <div className={pathname === "/projects" ? "w-full px-6 md:px-8 py-8" : "w-full h-[calc(100vh-57px)]"}>
+            {children}
+          </div>
+        ) : (
+          <div className="max-w-6xl mx-auto px-6 py-8">
+            {children}
+          </div>
+        )}
       </main>
     </div>
   );

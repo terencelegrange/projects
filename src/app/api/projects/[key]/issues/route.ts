@@ -140,13 +140,22 @@ export async function POST(
     });
     const nextIssueNumber = (latest?.issue_number ?? 0) + 1;
 
+    let initialStatus = status;
+    if (!initialStatus) {
+      const firstStatus = await prisma.projectStatus.findFirst({
+        where: { project_id: project.id },
+        orderBy: { order: "asc" },
+      });
+      initialStatus = firstStatus?.key || "backlog";
+    }
+
     const issue = await prisma.issue.create({
       data: {
         project_id: project.id,
         issue_number: nextIssueNumber,
         title: title.trim(),
         description: description?.trim() || null,
-        status: status || "todo",
+        status: initialStatus,
         priority: priority || "medium",
         type: type || "task",
         position: position !== undefined ? Number(position) : 0,
