@@ -228,6 +228,38 @@ export async function initDb() {
       ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
     `;
 
+    const notifyColExists = await prisma.$queryRaw<{ cnt: bigint }[]>`
+      SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'project_statuses' AND COLUMN_NAME = 'notify_on_enter'
+    `;
+    if (Number(notifyColExists[0].cnt) === 0) {
+      await prisma.$executeRaw`
+        ALTER TABLE \`project_statuses\` ADD COLUMN \`notify_on_enter\` BOOLEAN NOT NULL DEFAULT FALSE
+      `;
+    }
+
+    // Notifications table -- digests of issues that moved into a
+    // notify_on_enter status, grouped per user/project/status within a
+    // short window (see src/lib/notifications.ts) rather than one row per move.
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`notifications\` (
+        \`id\`          INT NOT NULL AUTO_INCREMENT,
+        \`user_id\`     INT NOT NULL,
+        \`project_id\`  INT NOT NULL,
+        \`status_key\`  VARCHAR(50) NOT NULL,
+        \`status_name\` VARCHAR(100) NOT NULL,
+        \`issue_ids\`   TEXT NOT NULL,
+        \`count\`       INT NOT NULL DEFAULT 1,
+        \`read\`        BOOLEAN NOT NULL DEFAULT FALSE,
+        \`created_at\`  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updated_at\`  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        KEY \`notifications_user_unread_idx\` (\`user_id\`, \`read\`, \`updated_at\`),
+        CONSTRAINT \`notifications_user_id_fk\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\` (\`id\`) ON DELETE CASCADE,
+        CONSTRAINT \`notifications_project_id_fk\` FOREIGN KEY (\`project_id\`) REFERENCES \`projects\` (\`id\`) ON DELETE CASCADE
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
     // Seed default role permissions
     for (const [role, keys] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
       for (const nav_key of keys) {

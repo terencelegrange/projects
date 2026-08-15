@@ -69,7 +69,7 @@ export async function POST(
     }
 
     const body = await req.json();
-    let { name, key: statusKey, color, order, is_done } = body;
+    let { name, key: statusKey, color, order, is_done, notify_on_enter } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json({ error: "Status name is required" }, { status: 400 });
@@ -125,6 +125,7 @@ export async function POST(
         order: targetOrder,
         color: color || "#3b82f6",
         is_done: Boolean(is_done),
+        notify_on_enter: Boolean(notify_on_enter),
       },
     });
 

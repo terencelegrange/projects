@@ -8,16 +8,19 @@ export interface ProjectStatusItem {
   order: number;
   color: string | null;
   is_done: boolean;
+  notify_on_enter: boolean;
   created_at: Date;
   updated_at: Date;
 }
 
 export const DEFAULT_PROJECT_STATUSES = [
-  { key: "backlog", name: "Backlog", order: 1, color: "#94a3b8", is_done: false },
-  { key: "todo", name: "To Do", order: 2, color: "#3b82f6", is_done: false },
-  { key: "in_progress", name: "In Progress", order: 3, color: "#f59e0b", is_done: false },
-  { key: "in_review", name: "In Review", order: 4, color: "#a855f7", is_done: false },
-  { key: "done", name: "Done", order: 5, color: "#10b981", is_done: true },
+  { key: "backlog", name: "Backlog", order: 1, color: "#94a3b8", is_done: false, notify_on_enter: false },
+  { key: "todo", name: "To Do", order: 2, color: "#3b82f6", is_done: false, notify_on_enter: false },
+  { key: "in_progress", name: "In Progress", order: 3, color: "#f59e0b", is_done: false, notify_on_enter: false },
+  // In Review defaults to notifying -- it's the natural "needs a human to
+  // look at this" checkpoint, especially for issues an agent moved itself.
+  { key: "in_review", name: "In Review", order: 4, color: "#a855f7", is_done: false, notify_on_enter: true },
+  { key: "done", name: "Done", order: 5, color: "#10b981", is_done: true, notify_on_enter: false },
 ];
 
 /**
@@ -40,6 +43,7 @@ export async function ensureProjectStatuses(projectId: number): Promise<ProjectS
           order: d.order,
           color: d.color,
           is_done: d.is_done,
+          notify_on_enter: d.notify_on_enter,
         },
       });
     }

@@ -9,6 +9,7 @@
  * Format: { date: "YYYY-MM-DD", description: "Short description of the change" }
  */
 export const CHANGELOG: { date: string; description: string }[] = [
+  { date: "2026-08-15", description: "Added notification bell: per-status 'notify on enter' toggle (Settings > Project Statuses), debounced 5-minute digest so bursts of agent-driven moves collapse into one alert, GET/PATCH /api/notifications + POST /api/notifications/read-all" },
   { date: "2026-08-15", description: "Added Dynamic Per-Project Statuses (1-N Ordering) with custom workflow stages, dedicated Settings UI (/settings/project-statuses), REST APIs, full Kanban integration, and regression test suite (7/7 passed)" },
   { date: "2026-08-15", description: "Updated Projects hub and Project Kanban workspace layout to responsive full width" },
   { date: "2026-08-14", description: "Added Workflow & Statuses settings page and REST API (/api/statuses) allowing custom display names for workflow statuses with automatic fallback to defaults" },

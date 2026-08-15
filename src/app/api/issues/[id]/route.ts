@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { initDb } from "@/lib/initDb";
 import { auditLog, getIp } from "@/lib/audit";
+import { notifyStatusChange } from "@/lib/notifications";
 
 async function resolveIssueId(idStr: string): Promise<number | null> {
   const numeric = Number(idStr);
@@ -158,6 +159,14 @@ export async function PATCH(
       },
       ip: getIp(req),
     });
+
+    if (existing.status !== updated.status) {
+      await notifyStatusChange({
+        projectId: updated.project.id,
+        statusKey: updated.status,
+        issueKey,
+      });
+    }
 
     return NextResponse.json({
       id: updated.id,

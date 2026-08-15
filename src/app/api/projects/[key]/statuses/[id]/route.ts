@@ -40,7 +40,7 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { name, key: newKey, color, order, is_done } = body;
+    const { name, key: newKey, color, order, is_done, notify_on_enter } = body;
 
     const data: any = {};
     if (name !== undefined && typeof name === "string" && name.trim()) {
@@ -62,6 +62,9 @@ export async function PATCH(
     }
     if (is_done !== undefined) {
       data.is_done = Boolean(is_done);
+    }
+    if (notify_on_enter !== undefined) {
+      data.notify_on_enter = Boolean(notify_on_enter);
     }
     if (order !== undefined && typeof order === "number") {
       data.order = Number(order);

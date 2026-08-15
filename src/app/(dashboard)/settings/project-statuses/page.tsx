@@ -19,6 +19,7 @@ interface StatusItem {
   order: number;
   color: string | null;
   is_done: boolean;
+  notify_on_enter: boolean;
   issueCount?: number;
 }
 
@@ -49,6 +50,7 @@ export default function ProjectStatusesSettingsPage() {
   const [modalKey, setModalKey] = useState("");
   const [modalColor, setModalColor] = useState(COLOR_PRESETS[0].value);
   const [modalIsDone, setModalIsDone] = useState(false);
+  const [modalNotify, setModalNotify] = useState(false);
 
   // Delete Modal with Issue Migration
   const [deletingStatus, setDeletingStatus] = useState<StatusItem | null>(null);
@@ -106,6 +108,7 @@ export default function ProjectStatusesSettingsPage() {
     setModalKey("");
     setModalColor(COLOR_PRESETS[1].value);
     setModalIsDone(false);
+    setModalNotify(false);
     setShowModal(true);
     setSuccessMsg(null);
     setErrorMsg(null);
@@ -117,6 +120,7 @@ export default function ProjectStatusesSettingsPage() {
     setModalKey(st.key);
     setModalColor(st.color || COLOR_PRESETS[0].value);
     setModalIsDone(st.is_done);
+    setModalNotify(st.notify_on_enter);
     setShowModal(true);
     setSuccessMsg(null);
     setErrorMsg(null);
@@ -141,6 +145,7 @@ export default function ProjectStatusesSettingsPage() {
             key: modalKey.trim() || undefined,
             color: modalColor,
             is_done: modalIsDone,
+            notify_on_enter: modalNotify,
           }),
         });
 
@@ -162,6 +167,7 @@ export default function ProjectStatusesSettingsPage() {
             key: modalKey.trim() || undefined,
             color: modalColor,
             is_done: modalIsDone,
+            notify_on_enter: modalNotify,
           }),
         });
 
@@ -430,6 +436,15 @@ export default function ProjectStatusesSettingsPage() {
                         </span>
                       )}
 
+                      {st.notify_on_enter && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-full">
+                          <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                          </svg>
+                          Notifies
+                        </span>
+                      )}
+
                       {isFirst && (
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-full">
                           Default on Creation
@@ -600,6 +615,20 @@ export default function ProjectStatusesSettingsPage() {
                 />
                 <label htmlFor="modalIsDone" className="text-xs font-semibold text-gray-800 dark:text-gray-200 cursor-pointer">
                   Mark as Completed / Shipped stage (counts toward 100% completion rate)
+                </label>
+              </div>
+
+              {/* Notify on Enter Toggle */}
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="modalNotify"
+                  checked={modalNotify}
+                  onChange={(e) => setModalNotify(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                />
+                <label htmlFor="modalNotify" className="text-xs font-semibold text-gray-800 dark:text-gray-200 cursor-pointer">
+                  Notify me when an issue moves into this stage (shown in the bell, top right)
                 </label>
               </div>
 

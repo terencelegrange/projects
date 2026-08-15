@@ -919,6 +919,82 @@ const spec = {
     },
 
     // ── Audit Log & Changelog ────────────────────────────────────────────
+    "/notifications": {
+      get: {
+        tags: ["Notifications"],
+        summary: "List notification digests",
+        description: "Returns the current user's recent notification digests (unread first) plus an unread-issue count for the bell badge. Digests group issues that moved into the same notify_on_enter status within a 5-minute window into one entry, rather than one row per move.",
+        responses: {
+          200: {
+            description: "Notification digests",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    notifications: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id:         { type: "integer", example: 1 },
+                          project:    { type: "object", properties: { key: { type: "string", example: "CORE" }, name: { type: "string" }, color: { type: "string" } } },
+                          statusKey:  { type: "string", example: "in_review" },
+                          statusName: { type: "string", example: "In Review" },
+                          issueKeys:  { type: "array", items: { type: "string" }, example: ["CORE-2", "CORE-5"] },
+                          count:      { type: "integer", example: 2 },
+                          read:       { type: "boolean" },
+                          createdAt:  { type: "string", format: "date-time" },
+                          updatedAt:  { type: "string", format: "date-time" },
+                        },
+                      },
+                    },
+                    unreadCount: { type: "integer", example: 2 },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: "Not authenticated" },
+        },
+      },
+    },
+    "/notifications/{id}": {
+      patch: {
+        tags: ["Notifications"],
+        summary: "Mark a notification digest read/unread",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } },
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            "application/json": {
+              schema: { type: "object", properties: { read: { type: "boolean", default: true } } },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Updated" },
+          401: { description: "Not authenticated" },
+          404: { description: "Notification not found" },
+        },
+      },
+    },
+    "/notifications/read-all": {
+      post: {
+        tags: ["Notifications"],
+        summary: "Mark all notifications read",
+        description: "Marks every unread notification digest belonging to the current user as read.",
+        responses: {
+          200: {
+            description: "Marked read",
+            content: { "application/json": { schema: { type: "object", properties: { ok: { type: "boolean" }, updated: { type: "integer" } } } } },
+          },
+          401: { description: "Not authenticated" },
+        },
+      },
+    },
     "/audit": {
       get: {
         tags: ["Audit"],

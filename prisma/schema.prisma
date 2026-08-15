@@ -24,6 +24,7 @@ model User {
   reported_issues  Issue[]        @relation("IssueReporter")
   comments         IssueComment[]
   api_keys         ApiKey[]
+  notifications    Notification[]
 
   @@map("users")
 }
@@ -69,28 +70,48 @@ model Project {
   lead        User?           @relation("ProjectLead", fields: [lead_id], references: [id], onDelete: SetNull)
   created_at  DateTime        @default(now())
   updated_at  DateTime        @updatedAt
-  issues      Issue[]
-  labels      Label[]
-  statuses    ProjectStatus[]
+  issues        Issue[]
+  labels        Label[]
+  statuses      ProjectStatus[]
+  notifications Notification[]
 
   @@map("projects")
 }
 
 model ProjectStatus {
-  id          Int      @id @default(autoincrement())
-  project_id  Int
-  project     Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  key         String   @db.VarChar(50)
-  name        String   @db.VarChar(100)
-  order       Int      @default(1)
-  color       String?  @db.VarChar(50)
-  is_done     Boolean  @default(false)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id               Int      @id @default(autoincrement())
+  project_id       Int
+  project          Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  key              String   @db.VarChar(50)
+  name             String   @db.VarChar(100)
+  order            Int      @default(1)
+  color            String?  @db.VarChar(50)
+  is_done          Boolean  @default(false)
+  notify_on_enter  Boolean  @default(false)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
 
   @@unique([project_id, key], name: "project_status_key")
   @@index([project_id, order], name: "project_order_idx")
   @@map("project_statuses")
+}
+
+model Notification {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  project_id  Int
+  project     Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  status_key  String   @db.VarChar(50)
+  status_name String   @db.VarChar(100)
+  issue_ids   String   @db.Text
+  count       Int      @default(1)
+  read        Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@index([user_id, read, updated_at], name: "notifications_user_unread_idx")
+  @@map("notifications")
 }
 
 model Issue {
