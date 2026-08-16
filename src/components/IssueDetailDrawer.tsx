@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import MarkupModal from "./MarkupModal";
 
 export interface UserSummary {
   id: number;
@@ -110,6 +111,7 @@ export default function IssueDetailDrawer({
   const [commentText, setCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showMarkupModal, setShowMarkupModal] = useState(false);
 
   useEffect(() => {
     if (!issueId) {
@@ -392,17 +394,48 @@ export default function IssueDetailDrawer({
 
             {/* Description */}
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 block mb-2">
-                Description
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Description
+                </label>
+                {description.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => setShowMarkupModal(true)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 hover:underline"
+                  >
+                    <span>👁️</span>
+                    <span>Preview Markup</span>
+                  </button>
+                )}
+              </div>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 onBlur={handleDescriptionBlur}
                 rows={5}
-                placeholder="Add a detailed description or acceptance criteria..."
+                placeholder="Add a detailed description or acceptance criteria (supports Markdown & HTML)..."
                 className="w-full bg-gray-50 dark:bg-slate-800/70 border border-gray-200 dark:border-slate-700 rounded-xl p-3.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition resize-y"
               />
+
+              {/* View as Markup Action Bar */}
+              <div className="flex items-center justify-between mt-2 px-1">
+                <span className="text-[11px] text-gray-400">
+                  Supports Markdown &amp; HTML formatting
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowMarkupModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 rounded-lg text-xs font-semibold transition active:scale-95 shadow-2xs"
+                  title="Open rendered markdown and HTML preview modal"
+                >
+                  <svg className="w-3.5 h-3.5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  <span>View as Markup</span>
+                </button>
+              </div>
             </div>
 
             {/* Comments & Activity Section */}
@@ -473,6 +506,17 @@ export default function IssueDetailDrawer({
           </div>
         ) : null}
       </div>
+
+      {/* View as Markup Modal */}
+      {issue && (
+        <MarkupModal
+          isOpen={showMarkupModal}
+          onClose={() => setShowMarkupModal(false)}
+          title={issue.title}
+          issueKey={issue.key}
+          content={description}
+        />
+      )}
     </div>
   );
 }
