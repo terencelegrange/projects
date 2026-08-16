@@ -589,6 +589,118 @@ const spec = {
       },
     },
 
+    // ── Issue Types ─────────────────────────────────────────────────────
+    "/issue-types": {
+      get: {
+        tags: ["Issue Types"],
+        summary: "List all issue types",
+        description: "Returns all configured issue types with custom icons, colors, descriptions, and issue counts.",
+        responses: {
+          200: {
+            description: "List of issue types",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    issueTypes: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id:          { type: "integer", example: 1 },
+                          key:         { type: "string", example: "task" },
+                          name:        { type: "string", example: "Task" },
+                          icon:        { type: "string", example: "✓" },
+                          color:       { type: "string", example: "#3b82f6" },
+                          description: { type: "string", example: "General work item" },
+                          is_default:  { type: "boolean", example: true },
+                          issuesCount: { type: "integer", example: 12 },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Issue Types"],
+        summary: "Create a new issue type",
+        description: "Creates an issue type category (e.g. 'epic', 'spike', 'incident', 'story').",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name"],
+                properties: {
+                  name:        { type: "string", example: "Epic" },
+                  key:         { type: "string", example: "epic" },
+                  icon:        { type: "string", example: "🚀" },
+                  color:       { type: "string", example: "#a855f7" },
+                  description: { type: "string", example: "Large initiative or multi-feature theme" },
+                  is_default:  { type: "boolean", example: false },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: "Issue type created" },
+          400: { description: "Validation error or key already exists" },
+        },
+      },
+    },
+
+    "/issue-types/{id}": {
+      patch: {
+        tags: ["Issue Types"],
+        summary: "Update an issue type",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" }, example: 1 },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name:        { type: "string", example: "Defect" },
+                  key:         { type: "string", example: "defect" },
+                  icon:        { type: "string", example: "🐛" },
+                  color:       { type: "string", example: "#ef4444" },
+                  description: { type: "string", example: "Defect or system error" },
+                  is_default:  { type: "boolean", example: false },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Issue type updated" },
+          404: { description: "Issue type not found" },
+        },
+      },
+      delete: {
+        tags: ["Issue Types"],
+        summary: "Delete an issue type",
+        description: "Deletes an issue type and migrates active issues to a target issue type.",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" }, example: 1 },
+          { name: "migrateToKey", in: "query", schema: { type: "string" }, description: "Target issue type key for migration" },
+        ],
+        responses: {
+          200: { description: "Issue type deleted and issues migrated" },
+          400: { description: "Cannot delete the last remaining issue type" },
+        },
+      },
+    },
+
     // ── API Keys ────────────────────────────────────────────────────────
     "/api-keys": {
       get: {

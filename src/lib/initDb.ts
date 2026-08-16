@@ -228,6 +228,37 @@ export async function initDb() {
       ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
     `;
 
+    // Issue Types table
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`issue_types\` (
+        \`id\`          INT NOT NULL AUTO_INCREMENT,
+        \`key\`         VARCHAR(50) NOT NULL,
+        \`name\`        VARCHAR(100) NOT NULL,
+        \`icon\`        VARCHAR(50) NOT NULL DEFAULT '✓',
+        \`color\`       VARCHAR(50) NOT NULL DEFAULT '#3b82f6',
+        \`description\` VARCHAR(255) NULL,
+        \`is_default\`  BOOLEAN NOT NULL DEFAULT FALSE,
+        \`created_at\`  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updated_at\`  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        UNIQUE KEY \`issue_type_key_idx\` (\`key\`)
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
+    // Seed default issue types if table is empty
+    const issueTypeCount = await prisma.$queryRaw<{ cnt: bigint }[]>`
+      SELECT COUNT(*) AS cnt FROM \`issue_types\`
+    `;
+    if (Number(issueTypeCount[0].cnt) === 0) {
+      await prisma.$executeRaw`
+        INSERT INTO \`issue_types\` (\`key\`, \`name\`, \`icon\`, \`color\`, \`description\`, \`is_default\`) VALUES
+        ('task', 'Task', '✓', '#3b82f6', 'General work item or technical task', TRUE),
+        ('bug', 'Bug', '🐛', '#ef4444', 'Defect, error, or unexpected behavior', FALSE),
+        ('feature', 'Feature', '✨', '#10b981', 'New functionality or product capability', FALSE),
+        ('improvement', 'Improvement', '⚡', '#a855f7', 'Optimization or enhancement to existing feature', FALSE)
+      `;
+    }
+
     const notifyColExists = await prisma.$queryRaw<{ cnt: bigint }[]>`
       SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS
       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'project_statuses' AND COLUMN_NAME = 'notify_on_enter'

@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { STATUS_CONFIG, PRIORITY_CONFIG, TYPE_CONFIG, UserSummary, IssueData, ProjectStatusOption } from "./IssueDetailDrawer";
+import { STATUS_CONFIG, PRIORITY_CONFIG, TYPE_CONFIG, UserSummary, IssueData, ProjectStatusOption, IssueTypeOption } from "./IssueDetailDrawer";
 
 interface NewIssueModalProps {
   isOpen: boolean;
   onClose: () => void;
   projectKey: string;
   defaultStatus?: string;
+  defaultType?: string;
   users: UserSummary[];
   statusMap?: Record<string, string>;
   projectStatuses?: ProjectStatusOption[];
+  issueTypes?: IssueTypeOption[];
   onCreated: (createdIssue: IssueData) => void;
 }
 
@@ -19,16 +21,19 @@ export default function NewIssueModal({
   onClose,
   projectKey,
   defaultStatus = "backlog",
+  defaultType,
   users,
   statusMap = {},
   projectStatuses = [],
+  issueTypes = [],
   onCreated,
 }: NewIssueModalProps) {
+  const defaultTypeKey = defaultType || issueTypes.find((t) => t.is_default)?.key || issueTypes[0]?.key || "task";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState(defaultStatus);
   const [priority, setPriority] = useState("medium");
-  const [type, setType] = useState("task");
+  const [type, setType] = useState(defaultTypeKey);
   const [assigneeId, setAssigneeId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,9 +41,10 @@ export default function NewIssueModal({
   useEffect(() => {
     if (isOpen) {
       setStatus(defaultStatus);
+      setType(defaultTypeKey);
       setError(null);
     }
-  }, [isOpen, defaultStatus]);
+  }, [isOpen, defaultStatus, defaultTypeKey]);
 
   if (!isOpen) return null;
 
@@ -203,11 +209,19 @@ export default function NewIssueModal({
                 onChange={(e) => setType(e.target.value)}
                 className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
-                {Object.entries(TYPE_CONFIG).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v.icon} {v.label}
-                  </option>
-                ))}
+                {issueTypes.length > 0 ? (
+                  issueTypes.map((t) => (
+                    <option key={t.key} value={t.key}>
+                      {t.icon || "✓"} {t.name}
+                    </option>
+                  ))
+                ) : (
+                  Object.entries(TYPE_CONFIG).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v.icon} {v.label}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 

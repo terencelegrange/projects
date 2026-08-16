@@ -209,3 +209,18 @@ model CustomStatus {
 
   @@map("custom_statuses")
 }
+
+model IssueType {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  icon        String   @default("✓") @db.VarChar(50)
+  color       String   @default("#3b82f6") @db.VarChar(50)
+  description String?  @db.VarChar(255)
+  is_default  Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("issue_types")
+}
+

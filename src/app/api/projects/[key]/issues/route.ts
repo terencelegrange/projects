@@ -149,6 +149,14 @@ export async function POST(
       initialStatus = firstStatus?.key || "backlog";
     }
 
+    let initialType = type;
+    if (!initialType) {
+      const defaultType = await prisma.issueType.findFirst({
+        where: { is_default: true },
+      });
+      initialType = defaultType?.key || "task";
+    }
+
     const issue = await prisma.issue.create({
       data: {
         project_id: project.id,
@@ -157,7 +165,7 @@ export async function POST(
         description: description?.trim() || null,
         status: initialStatus,
         priority: priority || "medium",
-        type: type || "task",
+        type: initialType,
         position: position !== undefined ? Number(position) : 0,
         assignee_id: assignee_id ? Number(assignee_id) : null,
         reporter_id: session.sub ? Number(session.sub) : null,

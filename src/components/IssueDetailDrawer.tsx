@@ -46,6 +46,16 @@ export interface ProjectStatusOption {
   is_done?: boolean;
 }
 
+export interface IssueTypeOption {
+  id?: number;
+  key: string;
+  name: string;
+  icon?: string;
+  color?: string;
+  description?: string | null;
+  is_default?: boolean;
+}
+
 interface IssueDetailDrawerProps {
   issueId: number | null;
   onClose: () => void;
@@ -54,6 +64,7 @@ interface IssueDetailDrawerProps {
   users: UserSummary[];
   statusMap?: Record<string, string>;
   projectStatuses?: ProjectStatusOption[];
+  issueTypes?: IssueTypeOption[];
 }
 
 export const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
@@ -88,6 +99,7 @@ export default function IssueDetailDrawer({
   users,
   statusMap = {},
   projectStatuses = [],
+  issueTypes = [],
 }: IssueDetailDrawerProps) {
   const [issue, setIssue] = useState<IssueData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -342,11 +354,19 @@ export default function IssueDetailDrawer({
                   onChange={(e) => updateField({ type: e.target.value })}
                   className="w-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  {Object.entries(TYPE_CONFIG).map(([val, conf]) => (
-                    <option key={val} value={val}>
-                      {conf.icon} {conf.label}
-                    </option>
-                  ))}
+                  {issueTypes.length > 0 ? (
+                    issueTypes.map((t) => (
+                      <option key={t.key} value={t.key}>
+                        {t.icon || "✓"} {t.name}
+                      </option>
+                    ))
+                  ) : (
+                    Object.entries(TYPE_CONFIG).map(([val, conf]) => (
+                      <option key={val} value={val}>
+                        {conf.icon} {conf.label}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 

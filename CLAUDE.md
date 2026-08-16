@@ -26,6 +26,7 @@ src/
         feature-flags/page.tsx  # Feature flag toggles
         api-access/page.tsx     # API Key generation (bp_...) & revocation
         project-statuses/page.tsx # Custom per-board workflow stages & 1-N column ordering
+        issue-types/page.tsx    # Custom issue types, icons, colors, & default assignment
         audit/page.tsx          # Paginated audit log browser
         documentation/page.tsx  # Interactive OpenAPI 3.0 documentation & cURL generator
         changelog/page.tsx      # System changelog synced with database
@@ -44,6 +45,9 @@ src/
         [id]/
           route.ts              # GET, PATCH (status/priority/position), DELETE (by ID or KEY)
           comments/route.ts     # GET (comments thread), POST (add comment/response)
+      issue-types/
+        route.ts                # GET (list types), POST (create type)
+        [id]/route.ts           # PATCH (update type/key), DELETE (delete & migrate)
       labels/route.ts           # GET (list labels), POST (create label)
       api-keys/
         route.ts                # GET (list keys), POST (generate bp_... API key)
@@ -101,6 +105,7 @@ The database contains 11 core tables managed via Prisma and `src/lib/initDb.ts`:
 | `users` | `id`, `email`, `password_hash`, `name`, `role`, `status`, `theme`, `avatar` | User accounts, roles (`viewer`, `editor`, `admin`), and approval status (`pending`, `approved`, `rejected`). |
 | `projects` | `id`, `key` (UNIQUE), `name`, `description`, `color`, `icon`, `lead_id` | Top-level project workspaces with team leads and custom accents. |
 | `project_statuses` | `id`, `project_id`, `key`, `name`, `order`, `color`, `is_done` | Per-project customizable workflow stages with sequential 1-N ordering. |
+| `issue_types` | `id`, `key` (UNIQUE), `name`, `icon`, `color`, `description`, `is_default` | Global customizable issue types, symbols/emojis, colors, and defaults. |
 | `issues` | `id`, `project_id`, `issue_number`, `title`, `description`, `status`, `priority`, `type`, `position`, `assignee_id`, `reporter_id`, `estimate`, `due_date` | Work items. Composite unique constraint `[project_id, issue_number]` for sequential keys (`CORE-1`, `CORE-2`). |
 | `issue_comments` | `id`, `issue_id`, `user_id`, `content`, `created_at` | Threaded discussions and automated bot updates on issues. |
 | `labels` | `id`, `name`, `color`, `project_id` | Categorization tags for issues. |
@@ -161,11 +166,17 @@ All endpoints accept `Authorization: Bearer <api_key>` or browser session cookie
 **Supported Priorities:** `urgent` (weight 5) · `high` (4) · `medium` (3) · `low` (2) · `none` (1)  
 **Supported Types:** `task` (📋) · `bug` (🐛) · `feature` (✨) · `improvement` (⚡)
 
-### 3. Issue Comments & Discussions API
+### 4. Issue Types API
+- `GET /api/issue-types` — List all configured issue types with icons, colors, descriptions, default flags, and issue counts.
+- `POST /api/issue-types` — Create an issue type (`{ name, key, icon, color, description, is_default }`).
+- `PATCH /api/issue-types/{id}` — Edit issue type name, key, icon, color, or default status. Auto-migrates issues on key rename.
+- `DELETE /api/issue-types/{id}?migrateToKey=...` — Delete issue type and migrate issues to target type safely.
+
+### 5. Issue Comments & Discussions API
 - `GET /api/issues/{id}/comments` — Retrieve full comment thread for an issue (accepts ID or Key like `CORE-2`).
 - `POST /api/issues/{id}/comments` — Post a response/comment (`{ content: "..." }`).
 
-### 4. Labels API
+### 6. Labels API
 - `GET /api/labels` — List issue labels (optional `?projectId=` filter).
 - `POST /api/labels` — Create a label (`{ name, color, project_id }`).
 

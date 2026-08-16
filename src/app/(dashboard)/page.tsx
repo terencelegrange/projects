@@ -48,18 +48,26 @@ function StatTile({ label, value, color, icon }: { label: string; value: number 
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [issueTypes, setIssueTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchOverview() {
       try {
-        const r = await fetch("/api/dashboard");
-        if (r.ok) {
-          const d = await r.json();
-          setData(d);
+        const [dashRes, typesRes] = await Promise.all([
+          fetch("/api/dashboard"),
+          fetch("/api/issue-types"),
+        ]);
+        if (dashRes.ok) {
+          const json = await dashRes.json();
+          setData(json);
+        }
+        if (typesRes.ok) {
+          const tJson = await typesRes.json();
+          setIssueTypes(tJson.issueTypes || []);
         }
       } catch (e) {
-        console.error(e);
+        console.error("Failed to load dashboard overview:", e);
       } finally {
         setLoading(false);
       }
@@ -139,7 +147,8 @@ export default function DashboardPage() {
             ) : (
               data.myRecentIssues.map((iss) => {
                 const prioConf = PRIORITY_CONFIG[iss.priority] || PRIORITY_CONFIG.medium;
-                const typeConf = TYPE_CONFIG[iss.type] || TYPE_CONFIG.task;
+                const typeItem = issueTypes.find((t) => t.key === iss.type);
+                const typeIcon = typeItem?.icon || TYPE_CONFIG[iss.type]?.icon || "✓";
 
                 return (
                   <Link
@@ -148,7 +157,7 @@ export default function DashboardPage() {
                     className="py-3 flex items-center justify-between gap-3 hover:bg-gray-50 dark:hover:bg-slate-800/40 rounded-xl px-2.5 transition group"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-xs">{typeConf.icon}</span>
+                      <span className="text-xs">{typeIcon}</span>
                       <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0">
                         {iss.key}
                       </span>

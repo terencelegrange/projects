@@ -9,6 +9,7 @@ import IssueDetailDrawer, {
   PRIORITY_CONFIG,
   TYPE_CONFIG,
   ProjectStatusOption,
+  IssueTypeOption,
 } from "@/components/IssueDetailDrawer";
 import NewIssueModal from "@/components/NewIssueModal";
 import { getStatusStyle } from "@/lib/projectStatuses";
@@ -30,6 +31,7 @@ export default function ProjectWorkspacePage() {
   const [issues, setIssues] = useState<IssueData[]>([]);
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [projectStatuses, setProjectStatuses] = useState<ProjectStatusOption[]>([]);
+  const [issueTypes, setIssueTypes] = useState<IssueTypeOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   // View Mode: board | list
@@ -56,11 +58,12 @@ export default function ProjectWorkspacePage() {
   async function loadData() {
     if (!projectKey) return;
     try {
-      const [projRes, issuesRes, usersRes, statusesRes] = await Promise.all([
+      const [projRes, issuesRes, usersRes, statusesRes, typesRes] = await Promise.all([
         fetch(`/api/projects/${projectKey}`),
         fetch(`/api/projects/${projectKey}/issues`),
         fetch("/api/users"),
         fetch(`/api/projects/${projectKey}/statuses`),
+        fetch("/api/issue-types"),
       ]);
 
       if (projRes.ok) {
@@ -90,6 +93,13 @@ export default function ProjectWorkspacePage() {
         if (stData.statuses && stData.statuses.length > 0) {
           setProjectStatuses(stData.statuses);
           setNewModalDefaultStatus(stData.statuses[0].key);
+        }
+      }
+
+      if (typesRes.ok) {
+        const tData = await typesRes.json();
+        if (tData.issueTypes && tData.issueTypes.length > 0) {
+          setIssueTypes(tData.issueTypes);
         }
       }
     } catch (e) {
@@ -493,11 +503,19 @@ export default function ProjectWorkspacePage() {
             className="bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 focus:outline-none"
           >
             <option value="all">All Types</option>
-            {Object.entries(TYPE_CONFIG).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v.label}
-              </option>
-            ))}
+            {issueTypes.length > 0 ? (
+              issueTypes.map((t) => (
+                <option key={t.key} value={t.key}>
+                  {t.icon || "✓"} {t.name}
+                </option>
+              ))
+            ) : (
+              Object.entries(TYPE_CONFIG).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v.label}
+                </option>
+              ))
+            )}
           </select>
 
           {/* Assignee */}
@@ -621,7 +639,9 @@ export default function ProjectWorkspacePage() {
                     ) : (
                       colIssues.map((iss) => {
                         const prioConf = PRIORITY_CONFIG[iss.priority] || PRIORITY_CONFIG.medium;
-                        const typeConf = TYPE_CONFIG[iss.type] || TYPE_CONFIG.task;
+                        const typeItem = issueTypes.find((t) => t.key === iss.type);
+                        const typeIcon = typeItem?.icon || TYPE_CONFIG[iss.type]?.icon || "✓";
+                        const typeLabel = typeItem?.name || TYPE_CONFIG[iss.type]?.label || "Task";
                         const isCardDragOver = dragOverIssueId === iss.id;
 
                         return (
@@ -642,8 +662,8 @@ export default function ProjectWorkspacePage() {
                             {/* Card Top: Key + Type + Quick Priority Selector */}
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-xs" title={`Type: ${typeConf.label}`}>
-                                  {typeConf.icon}
+                                <span className="text-xs" title={`Type: ${typeLabel}`}>
+                                  {typeIcon}
                                 </span>
                                 <span className="font-mono text-[11px] font-bold text-gray-500 dark:text-gray-400">
                                   {iss.key}
@@ -752,7 +772,9 @@ export default function ProjectWorkspacePage() {
                       .sort((a, b) => (PRIORITY_WEIGHT[b.priority] || 0) - (PRIORITY_WEIGHT[a.priority] || 0))
                       .map((iss) => {
                         const prioConf = PRIORITY_CONFIG[iss.priority] || PRIORITY_CONFIG.medium;
-                        const typeConf = TYPE_CONFIG[iss.type] || TYPE_CONFIG.task;
+                        const typeItem = issueTypes.find((t) => t.key === iss.type);
+                        const typeIcon = typeItem?.icon || TYPE_CONFIG[iss.type]?.icon || "✓";
+                        const typeLabel = typeItem?.name || TYPE_CONFIG[iss.type]?.label || "Task";
                         const currStatus = projectStatuses.find((s) => s.key === iss.status);
                         const statusStyle = getStatusStyle(currStatus?.color);
 
@@ -762,8 +784,8 @@ export default function ProjectWorkspacePage() {
                             onClick={() => setSelectedIssueId(iss.id)}
                             className="hover:bg-gray-50/80 dark:hover:bg-slate-800/40 cursor-pointer transition"
                           >
-                            <td className="py-3 px-4" title={typeConf.label}>
-                              <span className="text-sm">{typeConf.icon}</span>
+                            <td className="py-3 px-4" title={typeLabel}>
+                              <span className="text-sm">{typeIcon}</span>
                             </td>
                             <td className="py-3 px-4 font-mono font-bold text-gray-500 dark:text-gray-400">
                               {iss.key}
@@ -842,6 +864,7 @@ export default function ProjectWorkspacePage() {
         onDeleted={handleIssueDeleted}
         users={users}
         projectStatuses={projectStatuses}
+        issueTypes={issueTypes}
       />
 
       {/* New Issue Modal */}
@@ -854,6 +877,7 @@ export default function ProjectWorkspacePage() {
           defaultStatus={newModalDefaultStatus}
           users={users}
           projectStatuses={projectStatuses}
+          issueTypes={issueTypes}
         />
       )}
     </div>
