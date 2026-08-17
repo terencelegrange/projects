@@ -23,6 +23,7 @@ export async function GET(
         lead: { select: { id: true, name: true, email: true, avatar: true } },
         labels: true,
         statuses: { orderBy: { order: "asc" } },
+        attributes: { orderBy: { created_at: "asc" } },
         issues: {
           select: {
             id: true,
@@ -53,6 +54,11 @@ export async function GET(
       countByStatus[iss.status] = (countByStatus[iss.status] || 0) + 1;
     }
 
+    const attributesMap: Record<string, string> = {};
+    for (const attr of project.attributes) {
+      attributesMap[attr.key] = attr.value;
+    }
+
     return NextResponse.json({
       id: project.id,
       key: project.key,
@@ -63,6 +69,8 @@ export async function GET(
       lead: project.lead,
       labels: project.labels,
       statuses,
+      attributes: project.attributes,
+      attributesMap,
       created_at: project.created_at,
       updated_at: project.updated_at,
       stats: {
@@ -91,11 +99,64 @@ export async function PATCH(
     const projectKey = key.toUpperCase();
     const body = await req.json();
 
-    const { name, description, color, lead_id } = body;
+    const { name, description, color, lead_id, attributes } = body;
 
     const existing = await prisma.project.findUnique({ where: { key: projectKey } });
     if (!existing) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    // Sync attributes if supplied
+    if (attributes !== undefined) {
+      if (Array.isArray(attributes)) {
+        // Replace full set of attributes
+        await prisma.projectAttribute.deleteMany({
+          where: { project_id: existing.id },
+        });
+
+        for (const item of attributes) {
+          if (item && item.key && typeof item.key === "string" && item.key.trim()) {
+            await prisma.projectAttribute.create({
+              data: {
+                project_id: existing.id,
+                key: item.key.trim().toUpperCase(),
+                value: String(item.value ?? "").trim(),
+              },
+            });
+          }
+        }
+      } else if (typeof attributes === "object" && attributes !== null) {
+        for (const [attrKey, attrVal] of Object.entries(attributes)) {
+          if (attrKey && attrKey.trim()) {
+            if (attrVal === null || attrVal === "") {
+              // Remove attribute
+              await prisma.projectAttribute.deleteMany({
+                where: {
+                  project_id: existing.id,
+                  key: attrKey.trim().toUpperCase(),
+                },
+              });
+            } else {
+              await prisma.projectAttribute.upsert({
+                where: {
+                  project_id_key: {
+                    project_id: existing.id,
+                    key: attrKey.trim().toUpperCase(),
+                  },
+                },
+                create: {
+                  project_id: existing.id,
+                  key: attrKey.trim().toUpperCase(),
+                  value: String(attrVal).trim(),
+                },
+                update: {
+                  value: String(attrVal).trim(),
+                },
+              });
+            }
+          }
+        }
+      }
     }
 
     const updated = await prisma.project.update({
@@ -109,8 +170,14 @@ export async function PATCH(
       include: {
         lead: { select: { id: true, name: true, email: true, avatar: true } },
         statuses: { orderBy: { order: "asc" } },
+        attributes: { orderBy: { created_at: "asc" } },
       },
     });
+
+    const attributesMap: Record<string, string> = {};
+    for (const attr of updated.attributes) {
+      attributesMap[attr.key] = attr.value;
+    }
 
     await auditLog({
       userId: session.sub ? Number(session.sub) : null,
@@ -121,7 +188,7 @@ export async function PATCH(
       ip: getIp(req),
     });
 
-    return NextResponse.json(updated);
+    return NextResponse.json({ ...updated, attributesMap });
   } catch (error) {
     console.error("[PATCH /api/projects/[key]] error:", error);
     return NextResponse.json({ error: "Failed to update project" }, { status: 500 });

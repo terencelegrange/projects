@@ -259,6 +259,22 @@ export async function initDb() {
       `;
     }
 
+    // Project Attributes table
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`project_attributes\` (
+        \`id\`         INT NOT NULL AUTO_INCREMENT,
+        \`project_id\` INT NOT NULL,
+        \`key\`        VARCHAR(100) NOT NULL,
+        \`value\`      TEXT NOT NULL,
+        \`created_at\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updated_at\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        UNIQUE KEY \`project_attribute_key_idx\` (\`project_id\`, \`key\`),
+        KEY \`project_attributes_proj_idx\` (\`project_id\`),
+        CONSTRAINT \`project_attributes_project_id_fk\` FOREIGN KEY (\`project_id\`) REFERENCES \`projects\` (\`id\`) ON DELETE CASCADE
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
     const notifyColExists = await prisma.$queryRaw<{ cnt: bigint }[]>`
       SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS
       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'project_statuses' AND COLUMN_NAME = 'notify_on_enter'

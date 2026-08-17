@@ -48,6 +48,10 @@ export default function ProjectWorkspacePage() {
   const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [newModalDefaultStatus, setNewModalDefaultStatus] = useState("backlog");
+  const [showAttributesModal, setShowAttributesModal] = useState(false);
+  const [savingAttribute, setSavingAttribute] = useState(false);
+  const [newAttrKey, setNewAttrKey] = useState("");
+  const [newAttrVal, setNewAttrVal] = useState("");
 
   // Drag & Drop State
   const [draggingIssueId, setDraggingIssueId] = useState<number | null>(null);
@@ -405,6 +409,47 @@ export default function ProjectWorkspacePage() {
             >
               ⚙️ Stages ({projectStatuses.length})
             </Link>
+
+            {/* Quick button to Project Attributes / Variables */}
+            <button
+              onClick={() => setShowAttributesModal(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-gray-600 hover:text-indigo-600 dark:text-gray-300 dark:hover:text-indigo-400 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 transition"
+              title="View and configure project variables & attributes (e.g. REPO)"
+            >
+              🏷️ Variables {project?.attributes?.length ? `(${project.attributes.length})` : ""}
+            </button>
+
+            {/* Render top attribute links (e.g. REPO, DOCS) */}
+            {project?.attributes && project.attributes.length > 0 && (
+              <div className="hidden lg:flex items-center gap-1.5 pl-2 border-l border-gray-200 dark:border-slate-800">
+                {project.attributes.slice(0, 3).map((attr: any) => {
+                  const isUrl = /^https?:\/\//i.test(attr.value);
+                  return (
+                    <a
+                      key={attr.id}
+                      href={isUrl ? attr.value : undefined}
+                      target={isUrl ? "_blank" : undefined}
+                      rel={isUrl ? "noopener noreferrer" : undefined}
+                      onClick={(e) => {
+                        if (!isUrl) {
+                          e.preventDefault();
+                          setShowAttributesModal(true);
+                        }
+                      }}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-medium transition ${
+                        isUrl
+                          ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200/80 dark:border-indigo-800"
+                          : "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 border border-gray-200 dark:border-slate-700"
+                      }`}
+                      title={`${attr.key}: ${attr.value}`}
+                    >
+                      <span className="font-bold">{attr.key}</span>
+                      {isUrl && <span className="text-[9px]">↗</span>}
+                    </a>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Top Actions: View Toggle + Create Issue */}
@@ -879,6 +924,188 @@ export default function ProjectWorkspacePage() {
           projectStatuses={projectStatuses}
           issueTypes={issueTypes}
         />
+      )}
+
+      {/* Project Variables & Attributes Modal */}
+      {showAttributesModal && project && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 animate-fadeIn">
+          <div
+            className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <span>🏷️ Project Variables &amp; Attributes</span>
+                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                    {project.key}
+                  </span>
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  Configure dynamic environment variables, REPO links, documentation URLs, and build endpoints.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAttributesModal(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-xl transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-5">
+              {/* Existing Attributes */}
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                  Configured Variables ({project.attributes?.length || 0})
+                </h4>
+
+                {!project.attributes || project.attributes.length === 0 ? (
+                  <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/40 border border-dashed border-gray-200 dark:border-slate-700 text-center">
+                    <p className="text-xs text-gray-400 italic">No variables configured yet. Add your REPO or documentation URL below.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100 dark:divide-slate-800 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden">
+                    {project.attributes.map((attr: any) => {
+                      const isUrl = /^https?:\/\//i.test(attr.value);
+                      return (
+                        <div key={attr.id} className="p-3 bg-white dark:bg-slate-900 flex items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1 flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold px-2 py-1 rounded bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                              {attr.key}
+                            </span>
+                            <span className="text-xs text-gray-800 dark:text-gray-200 truncate font-mono">
+                              {attr.value}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {isUrl && (
+                              <a
+                                href={attr.value}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 rounded-lg transition"
+                                title="Open URL in new tab"
+                              >
+                                Open ↗
+                              </a>
+                            )}
+                            <button
+                              onClick={async () => {
+                                await navigator.clipboard.writeText(attr.value);
+                                alert(`Copied ${attr.key} to clipboard!`);
+                              }}
+                              className="px-2.5 py-1 text-xs font-semibold text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white bg-gray-100 dark:bg-slate-800 rounded-lg transition"
+                              title="Copy value"
+                            >
+                              Copy
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`Delete variable ${attr.key}?`)) return;
+                                await fetch(`/api/projects/${project.key}/attributes?id=${attr.id}`, {
+                                  method: "DELETE",
+                                });
+                                loadData();
+                              }}
+                              className="p-1 text-gray-400 hover:text-rose-500 rounded-lg transition"
+                              title="Delete attribute"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Add / Upsert Form */}
+              <div className="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/40 border border-gray-200 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+                    Add / Update Variable
+                  </span>
+                  {/* Presets */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-gray-400">Presets:</span>
+                    {["REPO", "DOCS", "WEBSITE", "CI_CD"].map((pKey) => (
+                      <button
+                        key={pKey}
+                        type="button"
+                        onClick={() => setNewAttrKey(pKey)}
+                        className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-white dark:bg-slate-800 text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700 hover:text-indigo-600"
+                      >
+                        +{pKey}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!newAttrKey.trim() || !newAttrVal.trim()) return;
+                    setSavingAttribute(true);
+                    try {
+                      const res = await fetch(`/api/projects/${project.key}/attributes`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ key: newAttrKey.trim(), value: newAttrVal.trim() }),
+                      });
+                      if (res.ok) {
+                        setNewAttrKey("");
+                        setNewAttrVal("");
+                        await loadData();
+                      }
+                    } catch (err) {
+                      console.error("Failed to save attribute:", err);
+                    } finally {
+                      setSavingAttribute(false);
+                    }
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <input
+                    type="text"
+                    placeholder="KEY (e.g. REPO)"
+                    value={newAttrKey}
+                    onChange={(e) => setNewAttrKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ""))}
+                    className="w-36 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-mono font-bold text-gray-900 dark:text-white uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Value / URL (e.g. http://192.168.100.252:3000/...)"
+                    value={newAttrVal}
+                    onChange={(e) => setNewAttrVal(e.target.value)}
+                    className="flex-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingAttribute || !newAttrKey.trim() || !newAttrVal.trim()}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex-shrink-0"
+                  >
+                    {savingAttribute ? "Saving..." : "Save"}
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3.5 border-t border-gray-100 dark:border-slate-800 bg-gray-50/80 dark:bg-slate-800/40 flex items-center justify-end">
+              <button
+                onClick={() => setShowAttributesModal(false)}
+                className="px-4 py-1.5 bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 dark:hover:bg-slate-700 text-gray-800 dark:text-gray-200 rounded-xl text-xs font-bold transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

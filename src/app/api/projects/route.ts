@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
       include: {
         lead: { select: { id: true, name: true, email: true, avatar: true } },
         statuses: { orderBy: { order: "asc" } },
+        attributes: { orderBy: { created_at: "asc" } },
         issues: {
           select: {
             id: true,
@@ -45,6 +46,12 @@ export async function GET(req: NextRequest) {
           countByStatus[iss.status] = (countByStatus[iss.status] || 0) + 1;
         }
 
+        // Convert attributes to map
+        const attributesMap: Record<string, string> = {};
+        for (const attr of p.attributes) {
+          attributesMap[attr.key] = attr.value;
+        }
+
         return {
           id: p.id,
           key: p.key,
@@ -54,6 +61,8 @@ export async function GET(req: NextRequest) {
           icon: p.icon,
           lead: p.lead,
           statuses,
+          attributes: p.attributes,
+          attributesMap,
           created_at: p.created_at,
           updated_at: p.updated_at,
           stats: {
@@ -83,7 +92,7 @@ export async function POST(req: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    let { key, name, description, color, lead_id, initial_statuses } = body;
+    let { key, name, description, color, lead_id, initial_statuses, attributes } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json({ error: "Project name is required" }, { status: 400 });
@@ -118,6 +127,53 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Create attributes if provided
+    if (attributes) {
+      if (Array.isArray(attributes)) {
+        for (const item of attributes) {
+          if (item && item.key && typeof item.key === "string" && item.key.trim()) {
+            await prisma.projectAttribute.upsert({
+              where: {
+                project_id_key: {
+                  project_id: project.id,
+                  key: item.key.trim().toUpperCase(),
+                },
+              },
+              create: {
+                project_id: project.id,
+                key: item.key.trim().toUpperCase(),
+                value: String(item.value ?? "").trim(),
+              },
+              update: {
+                value: String(item.value ?? "").trim(),
+              },
+            });
+          }
+        }
+      } else if (typeof attributes === "object") {
+        for (const [attrKey, attrVal] of Object.entries(attributes)) {
+          if (attrKey && attrKey.trim()) {
+            await prisma.projectAttribute.upsert({
+              where: {
+                project_id_key: {
+                  project_id: project.id,
+                  key: attrKey.trim().toUpperCase(),
+                },
+              },
+              create: {
+                project_id: project.id,
+                key: attrKey.trim().toUpperCase(),
+                value: String(attrVal ?? "").trim(),
+              },
+              update: {
+                value: String(attrVal ?? "").trim(),
+              },
+            });
+          }
+        }
+      }
+    }
+
     // Provision custom statuses or defaults 1-5
     if (Array.isArray(initial_statuses) && initial_statuses.length > 0) {
       for (let i = 0; i < initial_statuses.length; i++) {
@@ -147,8 +203,16 @@ export async function POST(req: NextRequest) {
       include: {
         lead: { select: { id: true, name: true, email: true, avatar: true } },
         statuses: { orderBy: { order: "asc" } },
+        attributes: { orderBy: { created_at: "asc" } },
       },
     });
+
+    const attributesMap: Record<string, string> = {};
+    if (fullProject?.attributes) {
+      for (const attr of fullProject.attributes) {
+        attributesMap[attr.key] = attr.value;
+      }
+    }
 
     await auditLog({
       userId: session.sub ? Number(session.sub) : null,
@@ -159,7 +223,7 @@ export async function POST(req: NextRequest) {
       ip: getIp(req),
     });
 
-    return NextResponse.json(fullProject, { status: 201 });
+    return NextResponse.json({ ...fullProject, attributesMap }, { status: 201 });
   } catch (error) {
     console.error("[POST /api/projects] error:", error);
     return NextResponse.json({ error: "Failed to create project" }, { status: 500 });

@@ -53,6 +53,24 @@ const spec = {
           color:       { type: "string", example: "#6366f1" },
           icon:        { type: "string", example: "folder" },
           lead:        { $ref: "#/components/schemas/User" },
+          attributes: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id:         { type: "integer", example: 1 },
+                project_id: { type: "integer", example: 1 },
+                key:        { type: "string", example: "REPO" },
+                value:      { type: "string", example: "https://github.com/org/repo.git" },
+                created_at: { type: "string", format: "date-time" },
+              },
+            },
+          },
+          attributesMap: {
+            type: "object",
+            additionalProperties: { type: "string" },
+            example: { REPO: "https://github.com/org/repo.git", DOCS: "https://docs.acme.com" },
+          },
           stats: {
             type: "object",
             properties: {
@@ -177,6 +195,12 @@ const spec = {
                   description: { type: "string", example: "iOS and Android client applications" },
                   color:       { type: "string", example: "#3b82f6" },
                   lead_id:     { type: "integer", example: 1 },
+                  attributes:  {
+                    type: "object",
+                    additionalProperties: { type: "string" },
+                    example: { REPO: "https://github.com/org/mobile-app.git", DOCS: "https://docs.mobile.com" },
+                    description: "Dynamic key-value variables and attributes (e.g. REPO, DOCS, CI_CD)",
+                  },
                 },
               },
             },
@@ -220,6 +244,11 @@ const spec = {
                   description: { type: "string", example: "Updated description" },
                   color:       { type: "string", example: "#6366f1" },
                   lead_id:     { type: "integer", example: 1 },
+                  attributes:  {
+                    type: "object",
+                    additionalProperties: { type: "string" },
+                    example: { REPO: "https://github.com/org/new-repo.git" },
+                  },
                 },
               },
             },
@@ -239,6 +268,79 @@ const spec = {
         ],
         responses: {
           200: { description: "Project deleted", content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean" } } } } } },
+          404: { description: "Project not found" },
+        },
+      },
+    },
+
+    // ── Project Attributes ──────────────────────────────────────────────
+    "/projects/{key}/attributes": {
+      get: {
+        tags: ["Project Attributes"],
+        summary: "Get project attributes",
+        description: "Returns all dynamic key-value variables (e.g. REPO, DOCS) configured for a project.",
+        parameters: [
+          { name: "key", in: "path", required: true, schema: { type: "string" }, example: "CORE" },
+        ],
+        responses: {
+          200: {
+            description: "List of project attributes and key-value dictionary",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    projectKey:    { type: "string", example: "CORE" },
+                    projectName:   { type: "string", example: "Core Platform" },
+                    attributes:    { type: "array", items: { type: "object" } },
+                    attributesMap: { type: "object", additionalProperties: { type: "string" }, example: { REPO: "https://github.com/org/repo.git" } },
+                  },
+                },
+              },
+            },
+          },
+          404: { description: "Project not found" },
+        },
+      },
+      post: {
+        tags: ["Project Attributes"],
+        summary: "Add or update project attribute",
+        description: "Upserts a dynamic variable for a project (e.g. key: 'REPO', value: 'https://...').",
+        parameters: [
+          { name: "key", in: "path", required: true, schema: { type: "string" }, example: "CORE" },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["key", "value"],
+                properties: {
+                  key:   { type: "string", example: "REPO", description: "Attribute name / key (e.g. REPO, DOCS, CI_CD)" },
+                  value: { type: "string", example: "https://github.com/org/repo.git", description: "Value or URL" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Attribute created or updated" },
+          400: { description: "Invalid attribute key or value" },
+          404: { description: "Project not found" },
+        },
+      },
+      delete: {
+        tags: ["Project Attributes"],
+        summary: "Delete project attribute",
+        description: "Deletes a project attribute by key or ID.",
+        parameters: [
+          { name: "key", in: "path", required: true, schema: { type: "string" }, example: "CORE" },
+          { name: "key", in: "query", schema: { type: "string" }, example: "REPO", description: "Attribute key to delete" },
+          { name: "id", in: "query", schema: { type: "integer" }, description: "Attribute numeric ID to delete" },
+        ],
+        responses: {
+          200: { description: "Attribute deleted", content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean" } } } } } },
           404: { description: "Project not found" },
         },
       },

@@ -21,6 +21,8 @@ interface ProjectData {
   color: string;
   icon: string;
   lead: UserSummary | null;
+  attributes?: { id: number; key: string; value: string }[];
+  attributesMap?: Record<string, string>;
   stats: ProjectStats;
   created_at: string;
   updated_at: string;
@@ -51,6 +53,7 @@ export default function ProjectsPage() {
   const [formDescription, setFormDescription] = useState("");
   const [formColor, setFormColor] = useState(COLOR_OPTIONS[0]);
   const [formLeadId, setFormLeadId] = useState<string>("");
+  const [formAttributes, setFormAttributes] = useState<{ id?: number; key: string; value: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -88,6 +91,7 @@ export default function ProjectsPage() {
     setFormDescription("");
     setFormColor(COLOR_OPTIONS[0]);
     setFormLeadId("");
+    setFormAttributes([{ key: "REPO", value: "" }]);
     setFormError(null);
     setShowModal(true);
   }
@@ -99,8 +103,32 @@ export default function ProjectsPage() {
     setFormDescription(p.description || "");
     setFormColor(p.color || COLOR_OPTIONS[0]);
     setFormLeadId(p.lead?.id ? String(p.lead.id) : "");
+    setFormAttributes(
+      p.attributes && p.attributes.length > 0
+        ? p.attributes.map((a) => ({ id: a.id, key: a.key, value: a.value }))
+        : [{ key: "REPO", value: "" }]
+    );
     setFormError(null);
     setShowModal(true);
+  }
+
+  function handleAddAttribute(presetKey?: string) {
+    setFormAttributes((prev) => [...prev, { key: presetKey || "", value: "" }]);
+  }
+
+  function handleRemoveAttribute(idx: number) {
+    setFormAttributes((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function handleAttributeChange(idx: number, field: "key" | "value", val: string) {
+    setFormAttributes((prev) => {
+      const next = [...prev];
+      next[idx] = {
+        ...next[idx],
+        [field]: field === "key" ? val.toUpperCase().replace(/[^A-Z0-9_]/g, "") : val,
+      };
+      return next;
+    });
   }
 
   function handleNameChange(val: string) {
@@ -122,6 +150,10 @@ export default function ProjectsPage() {
     setFormError(null);
 
     try {
+      const cleanedAttributes = formAttributes
+        .filter((a) => a.key.trim() && a.value.trim())
+        .map((a) => ({ key: a.key.trim(), value: a.value.trim() }));
+
       if (editingProject) {
         // PATCH
         const res = await fetch(`/api/projects/${editingProject.key}`, {
@@ -132,6 +164,7 @@ export default function ProjectsPage() {
             description: formDescription.trim() || null,
             color: formColor,
             lead_id: formLeadId ? Number(formLeadId) : null,
+            attributes: cleanedAttributes,
           }),
         });
         const data = await res.json();
@@ -147,6 +180,7 @@ export default function ProjectsPage() {
             description: formDescription.trim() || undefined,
             color: formColor,
             lead_id: formLeadId ? Number(formLeadId) : undefined,
+            attributes: cleanedAttributes,
           }),
         });
         const data = await res.json();
@@ -328,6 +362,35 @@ export default function ProjectsPage() {
                     <div className="text-sm font-extrabold text-emerald-500 dark:text-emerald-400 mt-0.5">{p.stats.done}</div>
                   </div>
                 </div>
+                {/* Attributes Badges (e.g. REPO, DOCS) */}
+                {p.attributes && p.attributes.length > 0 && (
+                  <div className="mt-3.5 flex flex-wrap gap-1.5">
+                    {p.attributes.map((attr) => {
+                      const isUrl = /^https?:\/\//i.test(attr.value);
+                      return (
+                        <a
+                          key={attr.id}
+                          href={isUrl ? attr.value : undefined}
+                          target={isUrl ? "_blank" : undefined}
+                          rel={isUrl ? "noopener noreferrer" : undefined}
+                          onClick={(e) => {
+                            if (!isUrl) e.preventDefault();
+                          }}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-medium transition ${
+                            isUrl
+                              ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200/80 dark:border-indigo-800"
+                              : "bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 border border-gray-200 dark:border-slate-700"
+                          }`}
+                          title={`${attr.key}: ${attr.value}`}
+                        >
+                          <span className="font-bold">{attr.key}:</span>
+                          <span className="truncate max-w-[120px]">{attr.value}</span>
+                          {isUrl && <span className="text-[9px]">↗</span>}
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Card Footer Actions */}
@@ -464,6 +527,92 @@ export default function ProjectsPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Project Variables & Attributes Section */}
+              <div className="pt-2 border-t border-gray-200 dark:border-slate-800">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                      Variables &amp; Attributes
+                    </label>
+                    <p className="text-[11px] text-gray-400">
+                      Configure custom variables like REPO URL, DOCS, CI/CD, etc.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAddAttribute()}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    <span>+ Add Variable</span>
+                  </button>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                  <span className="text-[11px] text-gray-400">Presets:</span>
+                  {["REPO", "DOCS", "WEBSITE", "CI_CD", "SLACK"].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => handleAddAttribute(preset)}
+                      className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-[10px] font-mono font-semibold text-gray-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 border border-gray-200 dark:border-slate-700 transition"
+                    >
+                      +{preset}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Attribute Rows */}
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {formAttributes.length === 0 ? (
+                    <p className="text-xs text-gray-400 italic py-1">No custom attributes configured.</p>
+                  ) : (
+                    formAttributes.map((attr, idx) => {
+                      const isUrl = /^https?:\/\//i.test(attr.value);
+                      return (
+                        <div key={idx} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder="KEY (e.g. REPO)"
+                            value={attr.key}
+                            onChange={(e) => handleAttributeChange(idx, "key", e.target.value)}
+                            className="w-32 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-gray-900 dark:text-white uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                          <div className="flex-1 relative">
+                            <input
+                              type="text"
+                              placeholder="Value / URL (e.g. http://192.168.100.252:3000/...)"
+                              value={attr.value}
+                              onChange={(e) => handleAttributeChange(idx, "value", e.target.value)}
+                              className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                            {isUrl && (
+                              <a
+                                href={attr.value}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="absolute right-2 top-1.5 text-indigo-500 hover:text-indigo-700 text-xs"
+                                title="Open URL in new tab"
+                              >
+                                ↗
+                              </a>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAttribute(idx)}
+                            className="p-1.5 text-gray-400 hover:text-rose-500 rounded-lg transition"
+                            title="Remove attribute"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
 
               <div className="pt-4 border-t border-gray-200 dark:border-slate-800 flex items-center justify-end gap-3">

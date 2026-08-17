@@ -38,6 +38,7 @@ src/
         route.ts                # GET (list with stats), POST (create project)
         [key]/
           route.ts              # GET (by key), PATCH (update), DELETE (cascade)
+          attributes/route.ts   # GET (variables), POST (upsert variable), DELETE (remove)
           issues/route.ts       # GET (filtered project issues), POST (create issue)
           statuses/route.ts     # GET (list 1-N stages), POST (add stage), PUT (reorder)
           statuses/[id]/route.ts# PATCH (edit stage), DELETE (delete & migrate)
@@ -105,6 +106,7 @@ The database contains 11 core tables managed via Prisma and `src/lib/initDb.ts`:
 | `users` | `id`, `email`, `password_hash`, `name`, `role`, `status`, `theme`, `avatar` | User accounts, roles (`viewer`, `editor`, `admin`), and approval status (`pending`, `approved`, `rejected`). |
 | `projects` | `id`, `key` (UNIQUE), `name`, `description`, `color`, `icon`, `lead_id` | Top-level project workspaces with team leads and custom accents. |
 | `project_statuses` | `id`, `project_id`, `key`, `name`, `order`, `color`, `is_done` | Per-project customizable workflow stages with sequential 1-N ordering. |
+| `project_attributes` | `id`, `project_id`, `key`, `value`, `created_at`, `updated_at` | Dynamic key-value variables & attributes (e.g. `REPO`, `DOCS`, `CI_CD`) per project workspace. |
 | `issue_types` | `id`, `key` (UNIQUE), `name`, `icon`, `color`, `description`, `is_default` | Global customizable issue types, symbols/emojis, colors, and defaults. |
 | `issues` | `id`, `project_id`, `issue_number`, `title`, `description`, `status`, `priority`, `type`, `position`, `assignee_id`, `reporter_id`, `estimate`, `due_date` | Work items. Composite unique constraint `[project_id, issue_number]` for sequential keys (`CORE-1`, `CORE-2`). |
 | `issue_comments` | `id`, `issue_id`, `user_id`, `content`, `created_at` | Threaded discussions and automated bot updates on issues. |
@@ -142,13 +144,18 @@ The platform provides dual-mode authentication in [`src/lib/auth.ts`](file:///Us
 All endpoints accept `Authorization: Bearer <api_key>` or browser session cookies.
 
 ### 1. Projects API
-- `GET /api/projects` — List all projects with progress stats, issue counts, and lead info.
-- `POST /api/projects` — Create project workspace (`{ name, key, description, color, lead_id }`).
-- `GET /api/projects/{key}` — Retrieve specific project details by unique uppercase key.
-- `PATCH /api/projects/{key}` — Update project name, description, color, or lead.
-- `DELETE /api/projects/{key}` — Delete project and cascade-delete all issues and comments.
+- `GET /api/projects` — List all projects with progress stats, issue counts, lead info, and dynamic attributes list/map.
+- `POST /api/projects` — Create project workspace (`{ name, key, description, color, lead_id, attributes }`).
+- `GET /api/projects/{key}` — Retrieve specific project details by unique uppercase key (includes `attributes` array and `attributesMap`).
+- `PATCH /api/projects/{key}` — Update project name, description, color, lead, or sync `attributes`.
+- `DELETE /api/projects/{key}` — Delete project and cascade-delete all issues, comments, statuses, and attributes.
 
-### 2. Project Statuses & Workflows API
+### 2. Project Variables & Attributes API
+- `GET /api/projects/{key}/attributes` — List all dynamic key-value variables configured for a project.
+- `POST /api/projects/{key}/attributes` — Add or upsert a variable (`{ key: "REPO", value: "https://..." }`).
+- `DELETE /api/projects/{key}/attributes?key=...` or `?id=...` — Delete a specific attribute.
+
+### 3. Project Statuses & Workflows API
 - `GET /api/projects/{key}/statuses` — List all workflow status stages for a project ordered by 1 to N position.
 - `POST /api/projects/{key}/statuses` — Add a new status stage (`{ name, key, color, order, is_done }`).
 - `PUT /api/projects/{key}/statuses` — Batch re-order statuses via array of IDs (`{ statusIds: [4, 1, 2, 3] }`).
