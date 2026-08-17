@@ -9,6 +9,7 @@
  * Format: { date: "YYYY-MM-DD", description: "Short description of the change" }
  */
 export const CHANGELOG: { date: string; description: string }[] = [
+  { date: "2026-08-17", description: "Updated browser favicon to match dashboard branding with high-resolution SVG and dynamic Next.js App Router icons (src/app/icon.svg, public/icon.svg, and src/app/icon.tsx)" },
   { date: "2026-08-16", description: "Added 'View as Markup' modal below issue descriptions with Markdown and HTML rendering, raw source viewing, side-by-side split view, and one-click copy" },
   { date: "2026-08-16", description: "Added Customizable Issue Types setting (/settings/issue-types) with custom icons, color palettes, descriptions, default type assignment, REST APIs (/api/issue-types), safe deletion with issue migration, and automated test suite (6/6 passed)" },
   { date: "2026-08-15", description: "Added notification bell: per-status 'notify on enter' toggle (Settings > Project Statuses), debounced 5-minute digest so bursts of agent-driven moves collapse into one alert, GET/PATCH /api/notifications + POST /api/notifications/read-all" },
