@@ -307,6 +307,69 @@ export async function initDb() {
       ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
     `;
 
+    // System Events table (Event stream for polling / audit)
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`system_events\` (
+        \`id\`            INT NOT NULL AUTO_INCREMENT,
+        \`event_id\`      VARCHAR(64) NOT NULL,
+        \`event_type\`    VARCHAR(100) NOT NULL,
+        \`action\`        VARCHAR(50) NOT NULL,
+        \`resource_type\` VARCHAR(50) NOT NULL,
+        \`resource_key\`  VARCHAR(100) NOT NULL,
+        \`project_key\`   VARCHAR(20) NOT NULL,
+        \`project_id\`    INT NULL,
+        \`actor_id\`      INT NULL,
+        \`payload\`       TEXT NOT NULL,
+        \`created_at\`    DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        UNIQUE KEY \`system_event_id_idx\` (\`event_id\`),
+        KEY \`system_events_type_idx\` (\`event_type\`),
+        KEY \`system_events_proj_idx\` (\`project_key\`),
+        KEY \`system_events_res_idx\` (\`resource_key\`),
+        KEY \`system_events_created_idx\` (\`created_at\`)
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
+    // Webhooks subscription table
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`webhooks\` (
+        \`id\`         INT NOT NULL AUTO_INCREMENT,
+        \`name\`       VARCHAR(100) NOT NULL,
+        \`url\`        VARCHAR(500) NOT NULL,
+        \`secret\`     VARCHAR(255) NULL,
+        \`events\`     TEXT NOT NULL,
+        \`project_id\` INT NULL,
+        \`active\`     BOOLEAN NOT NULL DEFAULT TRUE,
+        \`created_by\` INT NULL,
+        \`created_at\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updated_at\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        KEY \`webhooks_project_id_idx\` (\`project_id\`),
+        CONSTRAINT \`webhooks_project_id_fk\` FOREIGN KEY (\`project_id\`) REFERENCES \`projects\` (\`id\`) ON DELETE CASCADE
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
+    // Webhook Deliveries audit table
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`webhook_deliveries\` (
+        \`id\`              INT NOT NULL AUTO_INCREMENT,
+        \`webhook_id\`      INT NOT NULL,
+        \`event_id\`        VARCHAR(64) NOT NULL,
+        \`event_type\`      VARCHAR(100) NOT NULL,
+        \`payload\`         TEXT NOT NULL,
+        \`response_status\` INT NULL,
+        \`response_body\`   TEXT NULL,
+        \`duration_ms\`     INT NULL,
+        \`error\`           TEXT NULL,
+        \`created_at\`      DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        KEY \`webhook_deliveries_webhook_id_idx\` (\`webhook_id\`),
+        KEY \`webhook_deliveries_event_id_idx\` (\`event_id\`),
+        KEY \`webhook_deliveries_created_idx\` (\`created_at\`),
+        CONSTRAINT \`webhook_deliveries_webhook_id_fk\` FOREIGN KEY (\`webhook_id\`) REFERENCES \`webhooks\` (\`id\`) ON DELETE CASCADE
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
     // Seed default role permissions
     for (const [role, keys] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
       for (const nav_key of keys) {

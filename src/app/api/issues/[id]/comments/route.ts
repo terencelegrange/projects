@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { initDb } from "@/lib/initDb";
 import { auditLog, getIp } from "@/lib/audit";
+import { emitEvent } from "@/lib/events";
 
 async function resolveIssueId(idStr: string): Promise<number | null> {
   const numeric = Number(idStr);
@@ -101,6 +102,29 @@ export async function POST(
       details: { commentId: comment.id, issueKey },
       ip: getIp(req),
     });
+
+    // Emit comment.created event
+    await emitEvent({
+      eventType: "comment.created",
+      action: "create",
+      project: { id: issue.project.id, key: issue.project.key, name: issue.project.name },
+      actor: comment.user ? { id: comment.user.id, name: comment.user.name, email: comment.user.email } : null,
+      issue: {
+        id: issue.id,
+        key: issueKey,
+        issue_number: issue.issue_number,
+        title: issue.title,
+        status: issue.status,
+        priority: issue.priority,
+        type: issue.type,
+      },
+      comment: {
+        id: comment.id,
+        content: comment.content,
+        created_at: comment.created_at.toISOString(),
+        user: comment.user,
+      },
+    }).catch((e) => console.error("Failed to emit comment.created event:", e));
 
     return NextResponse.json(comment, { status: 201 });
   } catch (error) {

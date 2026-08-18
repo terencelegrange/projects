@@ -53,6 +53,13 @@ const TILES: { key: string; label: string; description: string; icon: string; hr
     href: "/settings/api-access",
   },
   {
+    key: "webhooks",
+    label: "Webhooks & Events",
+    description: "Real-time webhook notifications & event stream for 3rd-party apps",
+    icon: "M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244",
+    href: "/settings/webhooks",
+  },
+  {
     key: "documentation",
     label: "Documentation",
     description: "Browse the live OpenAPI spec and endpoint reference",

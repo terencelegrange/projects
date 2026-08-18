@@ -49,6 +49,15 @@ src/
       issue-types/
         route.ts                # GET (list types), POST (create type)
         [id]/route.ts           # PATCH (update type/key), DELETE (delete & migrate)
+      events/
+        route.ts                # GET (query events stream with filters)
+        [id]/route.ts           # GET (specific event payload)
+      webhooks/
+        route.ts                # GET (list webhooks), POST (register webhook)
+        [id]/
+          route.ts              # GET, PATCH (update/toggle), DELETE
+          test/route.ts         # POST (send test ping)
+          deliveries/route.ts   # GET (view delivery logs)
       labels/route.ts           # GET (list labels), POST (create label)
       api-keys/
         route.ts                # GET (list keys), POST (generate bp_... API key)
@@ -116,6 +125,9 @@ The database contains 11 core tables managed via Prisma and `src/lib/initDb.ts`:
 | `role_permissions` | `role`, `nav_key` (Composite PK) | Role-Based Access Control matrix for sidebar navigation. |
 | `feature_flags` | `key` (PK), `enabled`, `label`, `description` | Runtime toggles (`signup`, `dashboard`, `menu`, `projects`). |
 | `custom_statuses` | `key` (PK), `label`, `color`, `created_at`, `updated_at` | Custom display label mappings for standard workflow statuses. |
+| `system_events` | `id`, `event_id` (UNIQUE), `event_type`, `action`, `resource_type`, `resource_key`, `project_key`, `payload` | Immutable chronological event stream with hypermedia API links. |
+| `webhooks` | `id`, `name`, `url`, `secret`, `events`, `project_id`, `active` | Webhook subscriptions with project scope, event filters, and HMAC secrets. |
+| `webhook_deliveries` | `id`, `webhook_id`, `event_id`, `event_type`, `payload`, `response_status`, `duration_ms`, `error` | Outbound HTTP delivery audit log with status codes and latency. |
 | `audit_logs` | `id`, `user_id`, `action`, `resource`, `resource_id`, `details`, `ip`, `created_at` | Audit trail of all database mutations. |
 | `changelog` | `id`, `date`, `description`, `created_at` | Development history synced from `src/data/changelog.ts`. |
 
@@ -173,13 +185,50 @@ All endpoints accept `Authorization: Bearer <api_key>` or browser session cookie
 **Supported Priorities:** `urgent` (weight 5) · `high` (4) · `medium` (3) · `low` (2) · `none` (1)  
 **Supported Types:** `task` (📋) · `bug` (🐛) · `feature` (✨) · `improvement` (⚡)
 
-### 4. Issue Types API
-- `GET /api/issue-types` — List all configured issue types with icons, colors, descriptions, default flags, and issue counts.
-- `POST /api/issue-types` — Create an issue type (`{ name, key, icon, color, description, is_default }`).
-- `PATCH /api/issue-types/{id}` — Edit issue type name, key, icon, color, or default status. Auto-migrates issues on key rename.
-- `DELETE /api/issue-types/{id}?migrateToKey=...` — Delete issue type and migrate issues to target type safely.
+### 6. Webhooks & System Events API
+- `GET /api/events` — Query chronological events log (`?since=...`, `?projectKey=CORE`, `?eventType=issue.status_changed`, `?action=transition`, `?limit=50`).
+- `GET /api/events/{id}` — Retrieve full parsed event payload and hypermedia links by event ID (e.g. `evt_...`).
+- `GET /api/webhooks` — List registered webhook subscriptions with delivery counts and last health status.
+- `POST /api/webhooks` — Register a webhook endpoint (`{ name, url, secret, events, project_id, active }`).
+- `GET /api/webhooks/{id}` — Get webhook details.
+- `PATCH /api/webhooks/{id}` — Update webhook configuration or toggle active status.
+- `DELETE /api/webhooks/{id}` — Delete webhook subscription.
+- `POST /api/webhooks/{id}/test` — Send a test ping payload (`webhook.test`) to verify connectivity.
+- `GET /api/webhooks/{id}/deliveries` — Retrieve recent delivery logs, HTTP status codes, latency, and response bodies.
 
-### 5. Issue Comments & Discussions API
+#### Standard Event Payload & Hypermedia API Links
+```json
+{
+  "id": "evt_1723980000_a1b2c3d4",
+  "event": "issue.status_changed",
+  "action": "transition",
+  "timestamp": "2026-08-18T11:15:00.000Z",
+  "actor": { "id": 1, "name": "Admin User", "email": "admin@admin.com" },
+  "project": { "id": 1, "key": "CORE", "name": "Core Platform" },
+  "issue": {
+    "id": 15,
+    "key": "CORE-3",
+    "issue_number": 3,
+    "title": "Migrate schema",
+    "status": "todo",
+    "previous_status": "backlog",
+    "priority": "high",
+    "type": "task",
+    "assignee": { "id": 2, "name": "Terence", "email": "terence@admin.com" }
+  },
+  "changes": { "status": { "from": "backlog", "to": "todo" } },
+  "api_urls": {
+    "issue": "/api/issues/CORE-3",
+    "issue_comments": "/api/issues/CORE-3/comments",
+    "project": "/api/projects/CORE",
+    "project_issues": "/api/projects/CORE/issues",
+    "project_statuses": "/api/projects/CORE/statuses",
+    "project_attributes": "/api/projects/CORE/attributes"
+  }
+}
+```
+
+### 7. Issue Comments & Discussions API
 - `GET /api/issues/{id}/comments` — Retrieve full comment thread for an issue (accepts ID or Key like `CORE-2`).
 - `POST /api/issues/{id}/comments` — Post a response/comment (`{ content: "..." }`).
 

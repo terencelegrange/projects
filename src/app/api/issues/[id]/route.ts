@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { initDb } from "@/lib/initDb";
 import { auditLog, getIp } from "@/lib/audit";
 import { notifyStatusChange } from "@/lib/notifications";
+import { emitEvent } from "@/lib/events";
 
 async function resolveIssueId(idStr: string): Promise<number | null> {
   const numeric = Number(idStr);
@@ -160,13 +161,46 @@ export async function PATCH(
       ip: getIp(req),
     });
 
-    if (existing.status !== updated.status) {
+    const statusChanged = existing.status !== updated.status;
+
+    if (statusChanged) {
       await notifyStatusChange({
         projectId: updated.project.id,
         statusKey: updated.status,
         issueKey,
       });
     }
+
+    // Build changes diff
+    const changes: Record<string, { from: any; to: any }> = {};
+    if (existing.status !== updated.status) changes.status = { from: existing.status, to: updated.status };
+    if (existing.priority !== updated.priority) changes.priority = { from: existing.priority, to: updated.priority };
+    if (existing.title !== updated.title) changes.title = { from: existing.title, to: updated.title };
+    if (existing.type !== updated.type) changes.type = { from: existing.type, to: updated.type };
+    if (existing.assignee_id !== updated.assignee?.id) changes.assignee_id = { from: existing.assignee_id, to: updated.assignee?.id || null };
+
+    // Emit event: issue.status_changed vs issue.updated
+    await emitEvent({
+      eventType: statusChanged ? "issue.status_changed" : "issue.updated",
+      action: statusChanged ? "transition" : "update",
+      project: { id: updated.project.id, key: updated.project.key, name: updated.project.name },
+      actor: session.sub ? { id: Number(session.sub), name: session.name || null, email: session.email } : null,
+      issue: {
+        id: updated.id,
+        key: issueKey,
+        issue_number: updated.issue_number,
+        title: updated.title,
+        status: updated.status,
+        previous_status: statusChanged ? existing.status : null,
+        priority: updated.priority,
+        type: updated.type,
+        estimate: updated.estimate,
+        due_date: updated.due_date ? updated.due_date.toISOString() : null,
+        assignee: updated.assignee,
+        reporter: updated.reporter,
+      },
+      changes: Object.keys(changes).length > 0 ? changes : undefined,
+    }).catch((e) => console.error("Failed to emit issue event:", e));
 
     return NextResponse.json({
       id: updated.id,
@@ -225,6 +259,23 @@ export async function DELETE(
       details: { title: existing.title },
       ip: getIp(req),
     });
+
+    // Emit issue.deleted event
+    await emitEvent({
+      eventType: "issue.deleted",
+      action: "delete",
+      project: { id: existing.project.id, key: existing.project.key, name: existing.project.name },
+      actor: session.sub ? { id: Number(session.sub), name: session.name || null, email: session.email } : null,
+      issue: {
+        id: existing.id,
+        key: issueKey,
+        issue_number: existing.issue_number,
+        title: existing.title,
+        status: existing.status,
+        priority: existing.priority,
+        type: existing.type,
+      },
+    }).catch((e) => console.error("Failed to emit issue.deleted event:", e));
 
     return NextResponse.json({ success: true });
   } catch (error) {

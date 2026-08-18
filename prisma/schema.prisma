@@ -75,6 +75,7 @@ model Project {
   statuses      ProjectStatus[]
   attributes    ProjectAttribute[]
   notifications Notification[]
+  webhooks      Webhook[]
 
   @@map("projects")
 }
@@ -238,4 +239,62 @@ model ProjectAttribute {
   @@index([project_id])
   @@map("project_attributes")
 }
+
+model SystemEvent {
+  id            Int      @id @default(autoincrement())
+  event_id      String   @unique @db.VarChar(64)
+  event_type    String   @db.VarChar(100)
+  action        String   @db.VarChar(50)
+  resource_type String   @db.VarChar(50)
+  resource_key  String   @db.VarChar(100)
+  project_key   String   @db.VarChar(20)
+  project_id    Int?
+  actor_id      Int?
+  payload       String   @db.Text
+  created_at    DateTime @default(now())
+
+  @@index([event_type])
+  @@index([project_key])
+  @@index([resource_key])
+  @@index([created_at])
+  @@map("system_events")
+}
+
+model Webhook {
+  id          Int               @id @default(autoincrement())
+  name        String            @db.VarChar(100)
+  url         String            @db.VarChar(500)
+  secret      String?           @db.VarChar(255)
+  events      String            @db.Text // JSON array e.g. ["*"] or ["issue.status_changed"]
+  project_id  Int?
+  project     Project?          @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  active      Boolean           @default(true)
+  created_by  Int?
+  created_at  DateTime          @default(now())
+  updated_at  DateTime          @updatedAt
+  deliveries  WebhookDelivery[]
+
+  @@index([project_id])
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id              Int      @id @default(autoincrement())
+  webhook_id      Int
+  webhook         Webhook  @relation(fields: [webhook_id], references: [id], onDelete: Cascade)
+  event_id        String   @db.VarChar(64)
+  event_type      String   @db.VarChar(100)
+  payload         String   @db.Text
+  response_status Int?
+  response_body   String?  @db.Text
+  duration_ms     Int?
+  error           String?  @db.Text
+  created_at      DateTime @default(now())
+
+  @@index([webhook_id])
+  @@index([event_id])
+  @@index([created_at])
+  @@map("webhook_deliveries")
+}
+
 

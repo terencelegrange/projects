@@ -9,6 +9,7 @@
  * Format: { date: "YYYY-MM-DD", description: "Short description of the change" }
  */
 export const CHANGELOG: { date: string; description: string }[] = [
+  { date: "2026-08-18", description: "Added Webhooks & Events notification system with real-time HTTP webhook dispatch, HMAC-SHA256 signatures, hypermedia API URLs in payloads, delivery logs, polling APIs (/api/events), Settings UI (/settings/webhooks), and test suite (6/6 passed)" },
   { date: "2026-08-17", description: "Added Dynamic Project Variables & Attributes (e.g. REPO, DOCS, CI/CD) with REST APIs (/api/projects/[key]/attributes), full UI modal editing, card link badges, and automated test suite (6/6 passed)" },
   { date: "2026-08-17", description: "Updated browser favicon to match dashboard branding with high-resolution SVG and dynamic Next.js App Router icons (src/app/icon.svg, public/icon.svg, and src/app/icon.tsx)" },
   { date: "2026-08-16", description: "Added 'View as Markup' modal below issue descriptions with Markdown and HTML rendering, raw source viewing, side-by-side split view, and one-click copy" },

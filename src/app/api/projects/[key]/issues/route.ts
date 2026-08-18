@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { initDb } from "@/lib/initDb";
 import { auditLog, getIp } from "@/lib/audit";
+import { emitEvent } from "@/lib/events";
 
 export async function GET(
   req: NextRequest,
@@ -196,6 +197,27 @@ export async function POST(
       details: { title: issue.title, status: issue.status, priority: issue.priority },
       ip: getIp(req),
     });
+
+    // Emit issue.created webhook event
+    await emitEvent({
+      eventType: "issue.created",
+      action: "create",
+      project: { id: project.id, key: project.key, name: project.name },
+      actor: session.sub ? { id: Number(session.sub), name: session.name || null, email: session.email } : null,
+      issue: {
+        id: issue.id,
+        key: issueKey,
+        issue_number: issue.issue_number,
+        title: issue.title,
+        status: issue.status,
+        priority: issue.priority,
+        type: issue.type,
+        estimate: issue.estimate,
+        due_date: issue.due_date ? issue.due_date.toISOString() : null,
+        assignee: issue.assignee,
+        reporter: issue.reporter,
+      },
+    }).catch((e) => console.error("Failed to emit issue.created event:", e));
 
     return NextResponse.json({
       id: issue.id,

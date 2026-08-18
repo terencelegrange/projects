@@ -1350,6 +1350,154 @@ const spec = {
         },
       },
     },
+    "/events": {
+      get: {
+        tags: ["Events & Webhooks"],
+        summary: "Query system events stream",
+        description: "Retrieves chronological event log for polling workers and external apps. Filter by project, event type, action, or since timestamp.",
+        parameters: [
+          { name: "projectKey", in: "query", schema: { type: "string" }, description: "Filter by project key (e.g. CORE)" },
+          { name: "eventType", in: "query", schema: { type: "string" }, description: "Filter by event type (e.g. issue.status_changed, issue.created, comment.created)" },
+          { name: "action", in: "query", schema: { type: "string", enum: ["create", "update", "delete", "transition"] } },
+          { name: "since", in: "query", schema: { type: "string" }, description: "ISO timestamp or millisecond timestamp" },
+          { name: "limit", in: "query", schema: { type: "integer", default: 50 } },
+          { name: "offset", in: "query", schema: { type: "integer", default: 0 } },
+        ],
+        responses: {
+          200: {
+            description: "List of system events with full payloads and API hypermedia links",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    total:  { type: "integer", example: 42 },
+                    limit:  { type: "integer", example: 50 },
+                    offset: { type: "integer", example: 0 },
+                    events: { type: "array", items: { type: "object" } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/events/{id}": {
+      get: {
+        tags: ["Events & Webhooks"],
+        summary: "Get specific event details",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string" }, example: "evt_1723980000_a1b2c3" },
+        ],
+        responses: {
+          200: { description: "Event details with payload" },
+          404: { description: "Event not found" },
+        },
+      },
+    },
+    "/webhooks": {
+      get: {
+        tags: ["Events & Webhooks"],
+        summary: "List registered webhooks",
+        responses: {
+          200: { description: "List of webhooks with delivery stats" },
+        },
+      },
+      post: {
+        tags: ["Events & Webhooks"],
+        summary: "Register a webhook endpoint",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name", "url"],
+                properties: {
+                  name:       { type: "string", example: "Slack Bot Webhook" },
+                  url:        { type: "string", example: "https://api.slack.com/events" },
+                  secret:     { type: "string", example: "whsec_custom_secret_123" },
+                  events:     { type: "array", items: { type: "string" }, example: ["issue.status_changed", "issue.created"] },
+                  project_id: { type: "integer", nullable: true, example: 1 },
+                  active:     { type: "boolean", default: true },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: "Webhook registered successfully" },
+          400: { description: "Invalid URL or parameters" },
+        },
+      },
+    },
+    "/webhooks/{id}": {
+      get: {
+        tags: ["Events & Webhooks"],
+        summary: "Get webhook details",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          200: { description: "Webhook details" },
+          404: { description: "Webhook not found" },
+        },
+      },
+      patch: {
+        tags: ["Events & Webhooks"],
+        summary: "Update webhook settings or toggle active",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name:       { type: "string" },
+                  url:        { type: "string" },
+                  secret:     { type: "string" },
+                  events:     { type: "array", items: { type: "string" } },
+                  project_id: { type: "integer", nullable: true },
+                  active:     { type: "boolean" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Webhook updated" },
+          404: { description: "Webhook not found" },
+        },
+      },
+      delete: {
+        tags: ["Events & Webhooks"],
+        summary: "Delete webhook",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          200: { description: "Webhook deleted" },
+        },
+      },
+    },
+    "/webhooks/{id}/test": {
+      post: {
+        tags: ["Events & Webhooks"],
+        summary: "Send test ping to webhook",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          200: { description: "Ping attempt completed with delivery status" },
+        },
+      },
+    },
+    "/webhooks/{id}/deliveries": {
+      get: {
+        tags: ["Events & Webhooks"],
+        summary: "Get recent webhook delivery logs",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: {
+          200: { description: "List of delivery attempts and HTTP status codes" },
+        },
+      },
+    },
     "/openapi": {
       get: {
         tags: ["Meta"],
