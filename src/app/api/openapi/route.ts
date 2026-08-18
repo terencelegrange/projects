@@ -1018,11 +1018,53 @@ const spec = {
           403: { description: "Admin role required" },
         },
       },
+      post: {
+        tags: ["Users"],
+        summary: "Create a new user",
+        description: "Admin only. Creates an approved, pending, or rejected user with pre-hashed password.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email", "password"],
+                properties: {
+                  email:    { type: "string", format: "email", example: "developer@company.com" },
+                  password: { type: "string", minLength: 8, example: "SecurePass123!" },
+                  name:     { type: "string", nullable: true, example: "Alex Mercer" },
+                  role:     { type: "string", enum: ["viewer", "editor", "admin"], default: "viewer" },
+                  status:   { type: "string", enum: ["approved", "pending", "rejected"], default: "approved" },
+                  avatar:   { type: "integer", nullable: true, example: 12 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: "User created successfully", content: { "application/json": { schema: { $ref: "#/components/schemas/User" } } } },
+          400: { description: "Validation error" },
+          409: { description: "Email already taken" },
+          403: { description: "Admin role required" },
+        },
+      },
     },
     "/users/{id}": {
+      get: {
+        tags: ["Users"],
+        summary: "Get user by ID",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } },
+        ],
+        responses: {
+          200: { description: "User details", content: { "application/json": { schema: { $ref: "#/components/schemas/User" } } } },
+          404: { description: "User not found" },
+          403: { description: "Admin role required" },
+        },
+      },
       patch: {
         tags: ["Users"],
-        summary: "Update user role or approval status",
+        summary: "Update user details, role, status, or reset password",
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "integer" } },
         ],
@@ -1033,15 +1075,21 @@ const spec = {
               schema: {
                 type: "object",
                 properties: {
-                  status: { type: "string", enum: ["pending", "approved", "rejected"] },
-                  role:   { type: "string", enum: ["viewer", "editor", "admin"] },
+                  name:     { type: "string", nullable: true },
+                  email:    { type: "string", format: "email" },
+                  role:     { type: "string", enum: ["viewer", "editor", "admin"] },
+                  status:   { type: "string", enum: ["pending", "approved", "rejected"] },
+                  password: { type: "string", minLength: 8 },
+                  avatar:   { type: "integer", nullable: true },
                 },
               },
             },
           },
         },
         responses: {
-          200: { description: "User updated" },
+          200: { description: "User updated successfully" },
+          400: { description: "Validation error" },
+          409: { description: "Email already taken" },
           403: { description: "Admin role required" },
         },
       },

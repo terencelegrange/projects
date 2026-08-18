@@ -6,7 +6,7 @@
     "dev": "next dev -p 3333 --experimental-https",
     "build": "next build",
     "start": "next start -p 3333",
-    "test": "node tests/project-statuses.test.js && node tests/issue-types.test.js && node tests/project-attributes.test.js && node tests/webhooks.test.js",
+    "test": "node tests/project-statuses.test.js && node tests/issue-types.test.js && node tests/project-attributes.test.js && node tests/webhooks.test.js && node tests/user-management.test.js",
     "db:generate": "prisma generate"
   },
   "dependencies": {
