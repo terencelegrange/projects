@@ -1,5 +1,3 @@
-import { prisma } from "./prisma";
-
 export interface ProjectStatusItem {
   id: number;
   project_id: number;
@@ -28,6 +26,7 @@ export const DEFAULT_PROJECT_STATUSES = [
  * Returns all statuses for the project ordered by `order ASC`.
  */
 export async function ensureProjectStatuses(projectId: number): Promise<ProjectStatusItem[]> {
+  const { prisma } = await import("./prisma");
   let statuses = await prisma.projectStatus.findMany({
     where: { project_id: projectId },
     orderBy: { order: "asc" },

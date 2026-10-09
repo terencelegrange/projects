@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getIssueTypeStyle } from "@/lib/issueTypes";
+import { getIssueTypeStyle } from "@/lib/issueTypeStyles";
 
 interface IssueTypeItem {
   id: number;

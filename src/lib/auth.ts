@@ -1,6 +1,8 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies, headers } from "next/headers";
-import { prisma } from "./prisma";
+import { createHash, randomBytes } from "crypto";
+
+const DEVICE_TOKEN_TTL_DAYS = 30;
 
 export const COOKIE = "bp_token";
 export const THEME_COOKIE = "bp_theme";
@@ -32,21 +34,14 @@ export async function verifyToken(token: string): Promise<JwtPayload | null> {
   }
 }
 
-async function sha256Hex(text: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(text);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 async function getSessionFromApiKey(rawKey: string): Promise<JwtPayload | null> {
   try {
-    const keyHash = await sha256Hex(rawKey);
+    const { prisma } = await import("./prisma");
+    const keyHash = createHash("sha256").update(rawKey).digest("hex");
     const rows = await prisma.$queryRaw<{
-      id: number; active: number; expires_at: Date | null; created_by: number | null;
+      id: number; active: number; expires_at: Date | null;
     }[]>`
-      SELECT id, active, expires_at, created_by FROM api_keys
+      SELECT id, active, expires_at FROM api_keys
       WHERE key_hash = ${keyHash} AND active = 1
         AND (expires_at IS NULL OR expires_at > NOW())
       LIMIT 1
@@ -56,32 +51,36 @@ async function getSessionFromApiKey(rawKey: string): Promise<JwtPayload | null> 
     // Update last_used (fire and forget)
     prisma.$executeRaw`UPDATE api_keys SET last_used = NOW() WHERE id = ${rows[0].id}`.catch(() => {});
 
-    const userId = rows[0].created_by ? String(rows[0].created_by) : "1";
-
     // API keys get admin-level access
-    return { sub: userId, email: "api@local", role: "admin", name: "API Key" };
+    return { sub: "apikey", email: "api", role: "admin", name: null };
   } catch {
     return null;
   }
+}
+
+export function hashDeviceToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+export async function createDeviceToken(userId: number): Promise<string> {
+  const { prisma } = await import("./prisma");
+  const raw = randomBytes(32).toString("hex");
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO device_tokens (user_id, token_hash, expires_at) VALUES (?, ?, NOW() + INTERVAL ${DEVICE_TOKEN_TTL_DAYS} DAY)`,
+    userId,
+    hashDeviceToken(raw)
+  );
+  return raw;
 }
 
 export async function getSession(): Promise<JwtPayload | null> {
   // 1. Check Authorization: Bearer header (API key support)
   const headersList = await headers();
   const authHeader = headersList.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    const rawKey = authHeader.slice(7).trim();
-    if (rawKey.startsWith("bp_")) {
-      const apiKeySession = await getSessionFromApiKey(rawKey);
-      if (apiKeySession) return apiKeySession;
-    } else {
-      // Could be a raw JWT Bearer token
-      const jwtSession = await verifyToken(rawKey);
-      if (jwtSession) return jwtSession;
-      // Or fallback to API key lookup
-      const apiKeySession = await getSessionFromApiKey(rawKey);
-      if (apiKeySession) return apiKeySession;
-    }
+  if (authHeader?.startsWith("Bearer bp_")) {
+    const rawKey = authHeader.slice(7);
+    const session = await getSessionFromApiKey(rawKey);
+    if (session) return session;
   }
 
   // 2. Fall back to cookie-based JWT

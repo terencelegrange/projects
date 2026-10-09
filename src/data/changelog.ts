@@ -9,6 +9,8 @@
  * Format: { date: "YYYY-MM-DD", description: "Short description of the change" }
  */
 export const CHANGELOG: { date: string; description: string }[] = [
+  { date: "2026-10-09", description: "Added Observability Settings Hub with dedicated Analytics and Log Collector configuration, API key management, custom payload connector, and test suite" },
+  { date: "2026-10-09", description: "Added first-run install and setup wizard with live MySQL database connection testing, application configuration, and administrator account creation" },
   { date: "2026-08-18", description: "Added full User Management in Settings > Users (/settings/users) with admin user creation modal (+ secure password generator), user editing (name, email, role, status, password reset), safe deletion, role/status filter tabs, and automated CRUD test suite (6/6 passed)" },
   { date: "2026-08-18", description: "Added Webhooks & Events notification system with real-time HTTP webhook dispatch, HMAC-SHA256 signatures, hypermedia API URLs in payloads, delivery logs, polling APIs (/api/events), Settings UI (/settings/webhooks), and test suite (6/6 passed)" },
   { date: "2026-08-17", description: "Added Dynamic Project Variables & Attributes (e.g. REPO, DOCS, CI/CD) with REST APIs (/api/projects/[key]/attributes), full UI modal editing, card link badges, and automated test suite (6/6 passed)" },

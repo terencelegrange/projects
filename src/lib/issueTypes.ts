@@ -1,5 +1,3 @@
-import { prisma } from "./prisma";
-
 export interface IssueTypeItem {
   id: number;
   key: string;
@@ -23,6 +21,7 @@ export const DEFAULT_ISSUE_TYPES = [
  * Ensures issue_types are seeded in the database.
  */
 export async function ensureIssueTypes(): Promise<IssueTypeItem[]> {
+  const { prisma } = await import("./prisma");
   const existing = await prisma.issueType.findMany({
     orderBy: [
       { is_default: "desc" },

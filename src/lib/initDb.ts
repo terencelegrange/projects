@@ -370,6 +370,31 @@ export async function initDb() {
       ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
     `;
 
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`observability_config\` (
+        \`type\`           VARCHAR(50) NOT NULL,
+        \`enabled\`        TINYINT(1) NOT NULL DEFAULT 0,
+        \`endpoint\`       VARCHAR(255) NOT NULL,
+        \`api_key\`        VARCHAR(255) NULL,
+        \`site_id\`        VARCHAR(100) NULL,
+        \`log_level\`      VARCHAR(20) NULL DEFAULT 'info',
+        \`custom_headers\` TEXT NULL,
+        \`updated_at\`     DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`type\`)
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
+    // Seed default observability rows
+    await prisma.$executeRaw`
+      INSERT IGNORE INTO \`observability_config\` (\`type\`, \`enabled\`, \`endpoint\`, \`site_id\`, \`log_level\`)
+      VALUES ('analytics', 0, 'http://192.168.100.228:8030/api/collect', 'projects', 'info')
+    `;
+
+    await prisma.$executeRaw`
+      INSERT IGNORE INTO \`observability_config\` (\`type\`, \`enabled\`, \`endpoint\`, \`api_key\`, \`site_id\`, \`log_level\`)
+      VALUES ('logcollector', 0, 'http://192.168.100.228:8020/ingest', '', 'projects', 'info')
+    `;
+
     // Seed default role permissions
     for (const [role, keys] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
       for (const nav_key of keys) {

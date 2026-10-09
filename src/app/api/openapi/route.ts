@@ -43,6 +43,19 @@ const spec = {
           created_at: { type: "string", format: "date-time" },
         },
       },
+      ObservabilityConfig: {
+        type: "object",
+        properties: {
+          type:          { type: "string", enum: ["analytics", "logcollector"] },
+          enabled:       { type: "boolean" },
+          endpoint:      { type: "string" },
+          apiKey:        { type: "string" },
+          siteId:        { type: "string" },
+          logLevel:      { type: "string" },
+          customHeaders: { type: "object" },
+          updatedAt:     { type: "string", format: "date-time" },
+        },
+      },
       Project: {
         type: "object",
         properties: {
@@ -1546,6 +1559,244 @@ const spec = {
         },
       },
     },
+    // ── Setup & Installation ───────────────────────────────────────────
+    "/setup/status": {
+      get: {
+        tags: ["Setup"],
+        summary: "Check setup status",
+        description: "Returns whether the application installation is complete.",
+        security: [],
+        responses: {
+          200: {
+            description: "Setup completion status",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { complete: { type: "boolean" } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/setup/test-db": {
+      post: {
+        tags: ["Setup"],
+        summary: "Test database connectivity",
+        description: "Tests MySQL connection credentials and verifies/creates the database.",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["host", "user", "name"],
+                properties: {
+                  host:     { type: "string" },
+                  port:     { type: "integer", default: 3306 },
+                  user:     { type: "string" },
+                  password: { type: "string" },
+                  name:     { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Connection successful",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { success: { type: "boolean" } },
+                },
+              },
+            },
+          },
+          400: {
+            description: "Connection or validation error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { success: { type: "boolean" }, error: { type: "string" } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/setup/complete": {
+      post: {
+        tags: ["Setup"],
+        summary: "Complete installation",
+        description: "Saves database connection settings, creates schema tables, and creates initial administrator account.",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["db", "admin"],
+                properties: {
+                  db: {
+                    type: "object",
+                    required: ["host", "user", "name"],
+                    properties: {
+                      host:     { type: "string" },
+                      port:     { type: "integer" },
+                      user:     { type: "string" },
+                      password: { type: "string" },
+                      name:     { type: "string" },
+                    },
+                  },
+                  admin: {
+                    type: "object",
+                    required: ["email", "password"],
+                    properties: {
+                      name:     { type: "string" },
+                      email:    { type: "string", format: "email" },
+                      password: { type: "string" },
+                    },
+                  },
+                  appName: { type: "string" },
+                  orgName: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Installation complete",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { success: { type: "boolean" } },
+                },
+              },
+            },
+          },
+          400: { description: "Invalid configuration or already completed", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          500: { description: "Setup error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+
+    // ── Observability ───────────────────────────────────────────────────
+    "/observability": {
+      get: {
+        tags: ["Observability"],
+        summary: "Get observability configurations",
+        description: "Returns configuration for Analytics and LogCollector integrations.",
+        responses: {
+          200: {
+            description: "Observability configurations map",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  additionalProperties: { $ref: "#/components/schemas/ObservabilityConfig" },
+                },
+              },
+            },
+          },
+          401: { description: "Not authenticated" },
+        },
+      },
+      post: {
+        tags: ["Observability"],
+        summary: "Update observability configuration",
+        description: "Updates settings for Analytics or LogCollector. Admin only.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["type", "endpoint"],
+                properties: {
+                  type:          { type: "string", enum: ["analytics", "logcollector"] },
+                  enabled:       { type: "boolean" },
+                  endpoint:      { type: "string" },
+                  apiKey:        { type: "string" },
+                  siteId:        { type: "string" },
+                  logLevel:      { type: "string" },
+                  customHeaders: { type: "object" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Updated configuration",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ObservabilityConfig" },
+              },
+            },
+          },
+          401: { description: "Not authenticated" },
+          403: { description: "Admin access required" },
+        },
+      },
+    },
+    "/observability/test": {
+      post: {
+        tags: ["Observability"],
+        summary: "Test custom connector payload",
+        description: "Dispatches a live test request to the specified observability endpoint and reports latency and response status. Admin only.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["endpoint"],
+                properties: {
+                  type:          { type: "string", enum: ["analytics", "logcollector"] },
+                  endpoint:      { type: "string" },
+                  apiKey:        { type: "string" },
+                  payload:       { type: "object" },
+                  customHeaders: { type: "object" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Test execution result",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success:    { type: "boolean" },
+                    statusCode: { type: "integer" },
+                    statusText: { type: "string" },
+                    latencyMs:  { type: "number" },
+                    response:   { type: "object", nullable: true },
+                    error:      { type: "string", nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: "Not authenticated" },
+          403: { description: "Admin access required" },
+        },
+      },
+    },
+
     "/openapi": {
       get: {
         tags: ["Meta"],

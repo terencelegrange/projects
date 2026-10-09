@@ -12,7 +12,7 @@ import IssueDetailDrawer, {
   IssueTypeOption,
 } from "@/components/IssueDetailDrawer";
 import NewIssueModal from "@/components/NewIssueModal";
-import { getStatusStyle } from "@/lib/projectStatuses";
+import { getStatusStyle } from "@/lib/projectStatusStyles";
 
 const PRIORITY_WEIGHT: Record<string, number> = {
   urgent: 5,

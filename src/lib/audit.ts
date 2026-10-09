@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { sendRemoteLog } from "./observability";
 
 export interface AuditOptions {
   userId?: number | null;
@@ -26,6 +27,23 @@ export async function auditLog(opts: AuditOptions): Promise<void> {
         NOW()
       )
     `;
+
+    // Asynchronously forward to remote LogCollector if configured
+    sendRemoteLog({
+      level: "info",
+      message: `[Audit] ${opts.action} on ${opts.resource}${resourceId ? ` (#${resourceId})` : ""}`,
+      statusCode: 200,
+      method: "AUDIT",
+      path: `/${opts.resource}`,
+      metadata: {
+        userId: opts.userId,
+        action: opts.action,
+        resource: opts.resource,
+        resourceId: opts.resourceId,
+        details: opts.details,
+        ip: opts.ip,
+      },
+    }).catch(() => {});
   } catch (e) {
     // Never let audit failures break the main flow
     console.error("[audit] failed to write:", e);

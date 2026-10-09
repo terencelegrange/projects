@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getStatusStyle } from "@/lib/projectStatuses";
+import { getStatusStyle } from "@/lib/projectStatusStyles";
 
 interface ProjectSummary {
   id: number;

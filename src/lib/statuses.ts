@@ -1,5 +1,3 @@
-import { prisma } from "./prisma";
-
 export interface StatusDefinition {
   key: string;
   defaultLabel: string;
@@ -69,6 +67,7 @@ export const DEFAULT_STATUSES: StatusDefinition[] = [
 
 export async function getEffectiveStatuses(): Promise<StatusDefinition[]> {
   try {
+    const { prisma } = await import("./prisma");
     const customs = await prisma.customStatus.findMany();
     const customMap = new Map(customs.map((c) => [c.key, c.label]));
 
