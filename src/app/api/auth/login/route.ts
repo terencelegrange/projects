@@ -3,6 +3,7 @@ import { initDb, verifyPassword } from "@/lib/initDb";
 import { prisma } from "@/lib/prisma";
 import { signToken, COOKIE, THEME_COOKIE } from "@/lib/auth";
 import { auditLog, getIp } from "@/lib/audit";
+import { isSetupComplete } from "@/lib/setup";
 
 interface UserRow {
   id: number; email: string; password_hash: string;
@@ -10,6 +11,13 @@ interface UserRow {
 }
 
 export async function POST(req: NextRequest) {
+  if (!isSetupComplete()) {
+    return NextResponse.json(
+      { error: "Setup is not complete. Please visit /setup to configure the database.", setupRequired: true },
+      { status: 503 }
+    );
+  }
+
   await initDb();
   const { email, password } = await req.json();
 

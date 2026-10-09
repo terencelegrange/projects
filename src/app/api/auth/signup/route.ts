@@ -3,8 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { initDb, hashPassword } from "@/lib/initDb";
 import { auditLog, getIp } from "@/lib/audit";
 import { isFlagEnabled } from "@/lib/flags";
+import { isSetupComplete } from "@/lib/setup";
 
 export async function POST(req: NextRequest) {
+  if (!isSetupComplete()) {
+    return NextResponse.json(
+      { error: "Setup is not complete. Please visit /setup to configure the database.", setupRequired: true },
+      { status: 503 }
+    );
+  }
+
   await initDb();
 
   if (!(await isFlagEnabled("signup"))) {

@@ -10,14 +10,21 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSetup, setCheckingSetup] = useState(true);
 
   useEffect(() => {
     fetch("/api/setup/status")
       .then((r) => r.json())
       .then(({ complete }) => {
-        if (!complete) router.replace("/setup");
+        if (!complete) {
+          router.replace("/setup");
+        } else {
+          setCheckingSetup(false);
+        }
       })
-      .catch(() => {});
+      .catch(() => {
+        setCheckingSetup(false);
+      });
   }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -33,13 +40,29 @@ export default function LoginPage() {
       if (res.ok) {
         router.push("/");
       } else {
-        setError((await res.json()).error || "Login failed");
+        const data = await res.json();
+        if (data.setupRequired) {
+          router.replace("/setup");
+          return;
+        }
+        setError(data.error || "Login failed");
       }
     } catch {
       setError("Network error");
     } finally {
       setLoading(false);
     }
+  }
+
+  if (checkingSetup) {
+    return (
+      <div className="min-h-full flex items-center justify-center px-4 bg-gray-50 dark:bg-slate-950">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+          <p className="text-xs text-slate-500 font-medium">Checking application setup...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
