@@ -33,6 +33,7 @@ export default function ProjectWorkspacePage() {
   const [projectStatuses, setProjectStatuses] = useState<ProjectStatusOption[]>([]);
   const [issueTypes, setIssueTypes] = useState<IssueTypeOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
 
   // View Mode: board | list
   const [viewMode, setViewMode] = useState<"board" | "list">("board");
@@ -116,6 +117,161 @@ export default function ProjectWorkspacePage() {
   useEffect(() => {
     loadData();
   }, [projectKey]);
+
+  // Real-time EventSource listener for ticket changes, status movements, creations, deletions
+  useEffect(() => {
+    if (!projectKey) return;
+
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    let isSubscribed = true;
+
+    function handleEventPayload(data: any) {
+      if (!isSubscribed || !data || !data.event) return;
+      const eventType = data.event;
+      const issue = data.issue;
+      if (!issue) return;
+
+      if (eventType === "issue.status_changed" || eventType === "issue.updated") {
+        setIssues((prev) => {
+          const exists = prev.some((i) => i.id === issue.id || i.key === issue.key);
+          if (!exists) {
+            const newCard: IssueData = {
+              id: issue.id,
+              key: issue.key,
+              issueNumber: issue.issue_number || issue.issueNumber || 0,
+              title: issue.title,
+              description: issue.description || null,
+              status: issue.status,
+              priority: issue.priority,
+              type: issue.type,
+              position: issue.position ?? 0,
+              estimate: issue.estimate ?? null,
+              dueDate: issue.due_date || issue.dueDate || null,
+              assignee: issue.assignee || null,
+              reporter: issue.reporter || null,
+              commentsCount: issue.commentsCount || 0,
+              createdAt: issue.createdAt || new Date().toISOString(),
+              updatedAt: issue.updatedAt || new Date().toISOString(),
+            };
+            return [newCard, ...prev];
+          }
+          return prev.map((item) => {
+            if (item.id === issue.id || item.key === issue.key) {
+              return {
+                ...item,
+                title: issue.title ?? item.title,
+                description: issue.description !== undefined ? issue.description : item.description,
+                status: issue.status ?? item.status,
+                priority: issue.priority ?? item.priority,
+                type: issue.type ?? item.type,
+                position: issue.position !== undefined ? issue.position : item.position,
+                estimate: issue.estimate !== undefined ? issue.estimate : item.estimate,
+                dueDate: issue.due_date !== undefined ? issue.due_date : (issue.dueDate !== undefined ? issue.dueDate : item.dueDate),
+                assignee: issue.assignee !== undefined ? issue.assignee : item.assignee,
+                reporter: issue.reporter !== undefined ? issue.reporter : item.reporter,
+                commentsCount: issue.commentsCount !== undefined ? issue.commentsCount : item.commentsCount,
+                updatedAt: issue.updatedAt || new Date().toISOString(),
+              };
+            }
+            return item;
+          });
+        });
+      } else if (eventType === "issue.created") {
+        setIssues((prev) => {
+          const exists = prev.some((i) => i.id === issue.id || i.key === issue.key);
+          if (exists) return prev;
+          const newCard: IssueData = {
+            id: issue.id,
+            key: issue.key,
+            issueNumber: issue.issue_number || issue.issueNumber || 0,
+            title: issue.title,
+            description: issue.description || null,
+            status: issue.status,
+            priority: issue.priority,
+            type: issue.type,
+            position: issue.position ?? 0,
+            estimate: issue.estimate ?? null,
+            dueDate: issue.due_date || issue.dueDate || null,
+            assignee: issue.assignee || null,
+            reporter: issue.reporter || null,
+            commentsCount: issue.commentsCount || 0,
+            createdAt: issue.createdAt || new Date().toISOString(),
+            updatedAt: issue.updatedAt || new Date().toISOString(),
+          };
+          return [newCard, ...prev];
+        });
+      } else if (eventType === "issue.deleted") {
+        setIssues((prev) => prev.filter((i) => i.id !== issue.id && i.key !== issue.key));
+        if (selectedIssueId === issue.id) {
+          setSelectedIssueId(null);
+        }
+      } else if (eventType === "comment.created") {
+        setIssues((prev) =>
+          prev.map((item) =>
+            item.id === issue.id || item.key === issue.key
+              ? { ...item, commentsCount: (item.commentsCount || 0) + 1 }
+              : item
+          )
+        );
+      }
+    }
+
+    function connectSSE() {
+      if (!isSubscribed) return;
+      try {
+        eventSource = new EventSource(`/api/events/stream?projectKey=${encodeURIComponent(projectKey)}`);
+
+        eventSource.onopen = () => {
+          if (isSubscribed) setIsLiveConnected(true);
+        };
+
+        const onEventMessage = (e: MessageEvent) => {
+          try {
+            const parsed = JSON.parse(e.data);
+            handleEventPayload(parsed);
+          } catch {
+            // Heartbeat comment or non-json message
+          }
+        };
+
+        eventSource.addEventListener("issue.status_changed", onEventMessage);
+        eventSource.addEventListener("issue.updated", onEventMessage);
+        eventSource.addEventListener("issue.created", onEventMessage);
+        eventSource.addEventListener("issue.deleted", onEventMessage);
+        eventSource.addEventListener("comment.created", onEventMessage);
+        eventSource.onmessage = onEventMessage;
+
+        eventSource.onerror = () => {
+          if (isSubscribed) {
+            setIsLiveConnected(false);
+            if (eventSource) {
+              eventSource.close();
+              eventSource = null;
+            }
+            reconnectTimeout = setTimeout(() => {
+              if (isSubscribed) connectSSE();
+            }, 3000);
+          }
+        };
+      } catch (err) {
+        console.error("SSE connection setup error:", err);
+        setIsLiveConnected(false);
+      }
+    }
+
+    connectSSE();
+
+    return () => {
+      isSubscribed = false;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      setIsLiveConnected(false);
+    };
+  }, [projectKey, selectedIssueId]);
 
   // Handle status update (quick select)
   async function handleStatusChange(issueId: number, newStatus: string) {
@@ -399,6 +555,25 @@ export default function ProjectWorkspacePage() {
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">
                 {project?.name || projectKey}
               </h1>
+
+              {/* Real-time live status indicator */}
+              {isLiveConnected ? (
+                <span
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 transition"
+                  title="Live sync active: listening for card changes and status movements"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live
+                </span>
+              ) : (
+                <span
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 transition"
+                  title="Connecting to real-time event stream..."
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  Syncing
+                </span>
+              )}
             </div>
 
             {/* Quick link to Project Status Settings */}
@@ -910,6 +1085,7 @@ export default function ProjectWorkspacePage() {
         users={users}
         projectStatuses={projectStatuses}
         issueTypes={issueTypes}
+        currentIssueData={issues.find((i) => i.id === selectedIssueId) || null}
       />
 
       {/* New Issue Modal */}

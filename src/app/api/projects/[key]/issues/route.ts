@@ -209,13 +209,18 @@ export async function POST(
         key: issueKey,
         issue_number: issue.issue_number,
         title: issue.title,
+        description: issue.description,
         status: issue.status,
         priority: issue.priority,
         type: issue.type,
+        position: issue.position,
         estimate: issue.estimate,
         due_date: issue.due_date ? issue.due_date.toISOString() : null,
         assignee: issue.assignee,
         reporter: issue.reporter,
+        commentsCount: 0,
+        createdAt: issue.created_at.toISOString(),
+        updatedAt: issue.updated_at.toISOString(),
       },
     }).catch((e) => console.error("Failed to emit issue.created event:", e));
 

@@ -1,5 +1,22 @@
 import crypto from "crypto";
+import { EventEmitter } from "events";
 import { prisma } from "./prisma";
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __appEventsBus: EventEmitter | undefined;
+}
+
+/**
+ * Returns the singleton EventEmitter instance for application-wide real-time events.
+ */
+export function getEventsBus(): EventEmitter {
+  if (!globalThis.__appEventsBus) {
+    globalThis.__appEventsBus = new EventEmitter();
+    globalThis.__appEventsBus.setMaxListeners(500);
+  }
+  return globalThis.__appEventsBus;
+}
 
 export type EventType =
   | "issue.created"
@@ -30,14 +47,19 @@ export interface IssueSnapshot {
   key: string;
   issue_number: number;
   title: string;
+  description?: string | null;
   status: string;
   previous_status?: string | null;
   priority: string;
   type: string;
+  position?: number;
   estimate?: number | null;
   due_date?: string | null;
   assignee?: UserSnapshot | null;
   reporter?: UserSnapshot | null;
+  commentsCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CommentSnapshot {
@@ -135,6 +157,16 @@ export async function emitEvent(params: EmitEventParams): Promise<WebhookPayload
   dispatchToWebhooks(payload).catch((err) => {
     console.error("[events.ts] Webhook dispatch worker error:", err);
   });
+
+  // 3. Broadcast to in-memory event bus for real-time SSE listeners
+  try {
+    getEventsBus().emit("system_event", payload);
+    if (projectKey) {
+      getEventsBus().emit(`project:${projectKey}`, payload);
+    }
+  } catch (err) {
+    console.error("[events.ts] Failed to emit to event bus:", err);
+  }
 
   return payload;
 }

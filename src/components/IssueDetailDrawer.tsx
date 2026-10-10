@@ -66,6 +66,7 @@ interface IssueDetailDrawerProps {
   statusMap?: Record<string, string>;
   projectStatuses?: ProjectStatusOption[];
   issueTypes?: IssueTypeOption[];
+  currentIssueData?: IssueData | null;
 }
 
 export const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
@@ -101,6 +102,7 @@ export default function IssueDetailDrawer({
   statusMap = {},
   projectStatuses = [],
   issueTypes = [],
+  currentIssueData,
 }: IssueDetailDrawerProps) {
   const [issue, setIssue] = useState<IssueData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -132,6 +134,23 @@ export default function IssueDetailDrawer({
       })
       .catch(() => setLoading(false));
   }, [issueId]);
+
+  // Synchronize live changes pushed from real-time events while drawer is open
+  useEffect(() => {
+    if (currentIssueData && currentIssueData.id === issueId) {
+      setIssue((prev) => {
+        if (!prev) return currentIssueData;
+        return {
+          ...prev,
+          ...currentIssueData,
+          comments: prev.comments, // preserve comments loaded via full GET
+        };
+      });
+      if (!isEditingTitle) {
+        setTitle(currentIssueData.title);
+      }
+    }
+  }, [currentIssueData, issueId, isEditingTitle]);
 
   if (!issueId) return null;
 

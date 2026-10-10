@@ -9,6 +9,7 @@
  * Format: { date: "YYYY-MM-DD", description: "Short description of the change" }
  */
 export const CHANGELOG: { date: string; description: string }[] = [
+  { date: "2026-10-10", description: "Added Real-Time Ticket & Status Change Listener with Server-Sent Events (SSE) stream (/api/events/stream), in-process EventEmitter event bus, reactive Kanban board card updates (details and column movements), IssueDetailDrawer live synchronization, and automated test suite" },
   { date: "2026-10-09", description: "Added Observability Settings Hub with dedicated Analytics and Log Collector configuration, API key management, custom payload connector, and test suite" },
   { date: "2026-10-09", description: "Added first-run install and setup wizard with live MySQL database connection testing, application configuration, and administrator account creation" },
   { date: "2026-08-18", description: "Added full User Management in Settings > Users (/settings/users) with admin user creation modal (+ secure password generator), user editing (name, email, role, status, password reset), safe deletion, role/status filter tabs, and automated CRUD test suite (6/6 passed)" },

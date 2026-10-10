@@ -1444,6 +1444,31 @@ const spec = {
         },
       },
     },
+    "/events/stream": {
+      get: {
+        tags: ["Events & Webhooks"],
+        summary: "Subscribe to real-time Server-Sent Events (SSE) stream",
+        description: "Establishes a persistent SSE stream receiving real-time ticket, card detail, and status movement events without page reload.",
+        parameters: [
+          { name: "projectKey", in: "query", schema: { type: "string" }, description: "Filter real-time stream to a specific project key (e.g. CORE)" },
+          { name: "since", in: "query", schema: { type: "string" }, description: "Replay missed events since timestamp or Last-Event-ID" },
+        ],
+        responses: {
+          200: {
+            description: "Server-Sent Events text stream (text/event-stream)",
+            content: {
+              "text/event-stream": {
+                schema: {
+                  type: "string",
+                  example: "event: issue.status_changed\ndata: {\"event\":\"issue.status_changed\",\"issue\":{...}}\n\n",
+                },
+              },
+            },
+          },
+          401: { description: "Unauthorized" },
+        },
+      },
+    },
     "/events/{id}": {
       get: {
         tags: ["Events & Webhooks"],
