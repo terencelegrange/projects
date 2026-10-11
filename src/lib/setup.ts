@@ -36,6 +36,11 @@ const CONFIG_PATH = path.join(process.cwd(), "site.config.json");
 
 export function isSetupComplete(): boolean {
   try {
+    // If DATABASE_URL is configured in the environment (e.g. projects.env, .env, or system env),
+    // the application is already configured with an existing database and should bypass the setup wizard.
+    if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== "") {
+      return true;
+    }
     if (!fs.existsSync(CONFIG_PATH)) return false;
     const raw = fs.readFileSync(CONFIG_PATH, "utf-8");
     const config = JSON.parse(raw) as SiteConfig;
