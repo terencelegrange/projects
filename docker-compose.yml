@@ -8,6 +8,8 @@ services:
     restart: unless-stopped
     ports:
       - "3042:3333"
+    volumes:
+      - ./site.config.json:/app/site.config.json:ro
     env_file:
       # Deliberately not named .env -- Docker Compose auto-loads any file
       # literally named .env in the project dir for its own $VAR/${VAR}
